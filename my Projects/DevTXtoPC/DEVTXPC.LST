@@ -1,0 +1,401 @@
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Program Name : Serial port TX for PIC                  *
+                      00003 ; * Programmer : Simon , Gordon                            *
+                      00004 ; * Description : This program allows a PC to send a start *
+                      00005 ; *               character ('s') and RX data from PIC     *
+                      00006 ; **********************************************************
+                      00007 
+                      00008         list p=16F877   
+                      00009         include <p16f877.inc>
+                      00001         LIST
+                      00002 ; P16F877.INC  Standard Header File, Version 1.00    Microchip Technology, Inc.
+                      00373         LIST
+                      00010 
+  00000002            00011 PCL             EQU     02h     ; Address of program counter
+  00000001            00012 F               EQU     1h      ; Send Result to File
+  00000000            00013 W               EQU     0h      ; Send Result to Working Register
+  00000003            00014 Status          EQU     03h     ; Address of status register
+  00000085            00015 TrisA           EQU     85h     ; Address of Tristate Buffer A.
+  00000087            00016 TrisC           EQU     87h     ; Address of Tristate Buffer C.
+  00000088            00017 TrisD           EQU     88h     ; Address of Tristate Buffer D.
+  00000024            00018 Loop1           EQU     24h     ; Count variable for the first loop
+  00000025            00019 Loop2           EQU     25h     ; Count variable for the second loop
+  00000026            00020 Loop3           EQU     26h     ; Count variable for the third loop
+  00000005            00021 PortA           EQU     05h     ; Address of Port A.
+  00000008            00022 PortD           EQU     08h     ; Address of Port D.
+  00000098            00023 TXSTA           EQU     98h     ; Serial Port Transmit Control Register
+  00000099            00024 SPBRG           EQU     99h     ; Serial Port Baud Rate Generator Setting Register
+  00000019            00025 TXREG           EQU     19h     ; Serial Port Transmit register
+  0000001A            00026 RCREG           EQU     1Ah     ; Serial Port Receive
+  00000018            00027 RCSTA           EQU     18h     ; Serial Port Receive register control register
+  0000009F            00028 Adcon1          EQU     9Fh     ; Analogue Digital Register
+  0000000C            00029 PIR1            EQU     0Ch     ; Analogue Digital Register
+  0000008C            00030 PIE1            EQU     8CH     ; Peripheral Interupt Enable
+                      00031 
+                      00032 ; Start of Interupt Vector 
+0000                  00033         ORG 0000h
+0000   280B           00034         GOTO MAIN       
+                      00035         
+0004                  00036         ORG 0004h               ; Start of interupt vector
+0004                  00037 INTER
+0004   1218           00038         BCF     RCSTA,4         ; Disable Continuous Recieve while board Transmits
+0005   1683           00039         BSF     Status,5        ; Move to memory bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0006   1698           00040         BSF     TXSTA,5         ; Enable USART Transmit
+0007   1283           00041         BCF     Status,5        ; Move to memory bank 0
+0008   0099           00042         movwf   TXREG           ; Send value to serial port
+0009   1618           00043         BSF     RCSTA,4         ; Enable Continuous Recieve and wait for next start character
+000A   0009           00044         RETFIE
+                      00045 
+                      00046         
+                      00047 
+                      00048 ;Start of main program
+000B                  00049 MAIN
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000B   1683           00050         BSF     Status,5        ; Move to memory bank 1
+000C   30FF           00051         MOVLW   0FFh            ; set tris bits 6,7 for TX and RX, rest of pins
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000D   0087           00052         MOVWF   TrisC           ; to input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000E   0188           00053         CLRF    TrisD           ; Set all bits on portd to outputs
+                      00054 
+                      00055 ;Initialize Serial Port
+000F   3019           00056         MOVLW   19h             ; Set the baud rate to 9600
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0010   0099           00057         MOVWF   SPBRG           ; //
+0011   3000           00058         MOVLW   b'00000000'     ; Set serial port = on , asynchronous, brgh = 0, 
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0012   0098           00059         MOVWF   TXSTA           ; //
+0013   1283           00060         BCF     Status,5        ; Move to Memory Bank 0
+0014   3080           00061         MOVLW   b'10000000'     ; Set serial port = on 
+0015   0098           00062         MOVWF   RCSTA           ; //
+0016   0188           00063         CLRF    PortD           ;
+                      00064 
+                      00065 ;Initialize Recieve Interupts
+0017   1683           00066         BSF     Status,5        ; Move to memory bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0018   168C           00067         BSF     PIE1,5          ; Enable USART Recieve Interupts        
+0019   1283           00068         BCF     Status,5        ; Move to memory bank 0 
+001A   30C0           00069         MOVLW   B'11000000'     ; Global Interupt Enable, Peripheral Interupt enable
+001B   008B           00070         MOVWF   INTCON          ; //
+001C   3000           00071         MOVLW   00h             ; Set Working Register to 0
+001D   1618           00072         BSF     RCSTA,4         ; Enable Continuous Recieve
+                      00073 
+                      00074 ;Start to recieve values
+001E                  00075 START
+001E   302E           00076         movlw   2Eh             ; Value to send to PC
+001F   281E           00077         GOTO START              ; loaded into the Working Reg when the interupt occurs
+                      00078         end                     ;
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+Adcon1                            0000009F
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+C                                 00000000
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CKE                               00000006
+CKP                               00000004
+CREN                              00000004
+CSRC                              00000007
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+D_A                               00000005
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  4
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTER                             00000004
+INTF                              00000001
+IRP                               00000007
+Loop1                             00000024
+Loop2                             00000025
+Loop3                             00000026
+MAIN                              0000000B
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  5
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+PortA                             00000005
+PortD                             00000008
+R                                 00000002
+RBIE                              00000003
+RBIF                              00000000
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+READ_WRITE                        00000002
+RP0                               00000005
+RP1                               00000006
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_W                               00000002
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  6
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+START                             0000001E
+STATUS                            00000003
+SYNC                              00000004
+Status                            00000003
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISB                             00000086
+TRISC                             00000087
+TRISD                             00000088
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  7
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+TrisA                             00000085
+TrisC                             00000087
+TrisD                             00000088
+UA                                00000001
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00000FCF
+_CP_HALF                          00001FDF
+_CP_OFF                           00003FFF
+_CP_UPPER_256                     00002FEF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_HS_OSC                           00003FFE
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_ENABLE_OFF                   00003DFF
+_WRT_ENABLE_ON                    00003FFF
+_XT_OSC                           00003FFD
+__16F877                          00000001
+MPASM 03.10 Released          DEVTXPC.ASM   11-27-2003  14:54:20         PAGE  8
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+
+0000 : X---XXXXXXXXXXXX XXXXXXXXXXXXXXXX ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    29
+Program Memory Words Free:  8163
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     6 reported,     0 suppressed
+
+

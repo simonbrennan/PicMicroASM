@@ -1,0 +1,5 @@
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\RUNNIN~1\RUNLIGHT.ASM 41 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\RUNNIN~1\RUNLIGHT.ASM 43 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\RUNNIN~1\RUNLIGHT.ASM 44 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[305] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\RUNNIN~1\RUNLIGHT.ASM 64 : Using default destination of 1 (file).
+Message[305] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\RUNNIN~1\RUNLIGHT.ASM 75 : Using default destination of 1 (file).

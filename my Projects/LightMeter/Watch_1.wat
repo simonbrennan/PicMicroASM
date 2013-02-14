@@ -1,0 +1,17 @@
+[Watch_Name]
+Watch_Name=Watch_1
+[Watch_Registers]
+0=Adl
+1=Adh
+2=RCSTA
+3=SPBRG
+4=TXSTA
+5=TXREG
+6=Adcon0
+7=Adcon1
+8=TrisA
+9=R0
+10=R1
+11=R2
+12=L_byte
+13=H_byte

@@ -1,0 +1,1008 @@
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Name : Simon Brennan                                   *
+                      00003 ; * Date : 30/03/2003                                      *
+                      00004 ; * Description : This program uses the onboard a/d        *
+                      00005 ; *               in the PIC to read a analogue voltage    *
+                      00006 ; *                                                        *
+                      00007 ; *                                                        *
+                      00008 ; * Inputs : Address 03h -> Status                         *
+                      00009 ; *          Address 02h -> PCL                            *
+                      00010 ; *          Address 1h  -> F                              *            
+                      00011 ; *          Address 9fh -> Adcon1                         *    
+                      00012 ; *          Address 88h -> TrisD                          *
+                      00013 ; *          Address 85h -> TrisA                          *
+                      00014 ; *          Address 20h -> Loop1                          *    
+                      00015 ; *          Address 21h -> Loop2                          *
+                      00016 ; *          Address 22h -> Loop3                          *            
+                      00017 ; *          Address 23h -> Counter                        *            
+                      00018 ; *          Address 05h -> PortA                          *
+                      00019 ; * Outputs: Address 03h -> PortD                          *
+                      00020 ; *                                                        *
+                      00021 ; * Version: 0.1 - Basic Interface, read ADcon and display *
+                      00022 ; **********************************************************
+                      00023 
+                      00024         list p=16F877
+                      00025         include <p16f877.inc>
+                      00001         LIST
+                      00002 ; P16F877.INC  Standard Header File, Version 1.00    Microchip Technology, Inc.
+                      00373         LIST
+2007   3F31           00026         __CONFIG _BODEN_OFF&_CP_OFF&_WRT_ENABLE_ON&_PWRTE_ON&_WDT_OFF&_XT_OSC&_DEBUG_OFF&_CPD_OFF&_LVP_O
+                            FF
+                      00027 
+  00000002            00028 PCL             EQU     02h     ; Address of program counter
+  00000001            00029 F               EQU     1h      ; Result of operation into File
+  00000000            00030 W               EQU     0h      ; Result of operation into Working Register
+  00000003            00031 Status          EQU     03h     ; Address of status register
+  00000005            00032 RP0             EQU     05h     ; Bit 5 of Status Register
+  00000085            00033 TrisA           EQU     85h     ; Address of Tristate Buffer A.
+  00000086            00034 TrisB           EQU     86h     ; Address of Tristate Buffer A.
+  00000005            00035 PortA           EQU     05h     ; Address of Port A.
+  00000006            00036 PortB           EQU     06h     ; Address of Port A.
+  00000020            00037 Loop1           EQU     20h     ; Count variable for the first loop
+  00000021            00038 Loop2           EQU     21h     ; Count variable for the second loop
+  00000022            00039 Loop3           EQU     22h     ; Count variable for the first loop
+  00000023            00040 Counter         EQU     23h     ; Stores the status of counter
+  0000001E            00041 Adh             EQU     1Eh     ;
+  0000009E            00042 Adl             EQU     9Eh     ;
+  00000024            00043 Unit            EQU     24h     ;
+  00000025            00044 Ten             EQU     25h     ;
+  00000026            00045 Hundred         EQU     26h     ;
+  00000027            00046 Temp            EQU     27h     ;
+  0000009F            00047 Adcon1          EQU     9Fh     ; Address of Adcon1.
+  0000001F            00048 Adcon0          EQU     1Fh     ; Analogue Digital Register
+  00000002            00049 GO              EQU     02h     ; GO/Done bit for Adconverter
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00050 
+                      00051 ;Defines for I/O ports that provide LCD data & control
+  00000006            00052 LCD_DATA        equ     PORTB
+  00000006            00053 LCD_CNTL        equ     PORTB
+                      00054 
+                      00055 ; Defines for I/O pins that provide LCD control
+  00000005            00056 RS              equ     5
+  00000004            00057 E               equ     4
+                      00058 
+                      00059 ; LCD Module commands
+  0000000C            00060 DISP_ON         EQU     0x00C   ; Display on
+  0000000E            00061 DISP_ON_C       EQU     0x00E   ; Display on, Cursor on
+  0000000F            00062 DISP_ON_B       EQU     0x00F   ; Display on, Cursor on, Blink cursor
+  00000008            00063 DISP_OFF        EQU     0x008   ; Display off
+  00000001            00064 CLR_DISP        EQU     0x001   ; Clear the Display
+  00000006            00065 ENTRY_INC       EQU     0x006   ;
+  00000007            00066 ENTRY_INC_S     EQU     0x007   ;
+  00000004            00067 ENTRY_DEC       EQU     0x004   ;
+  00000005            00068 ENTRY_DEC_S     EQU     0x005   ;
+  00000080            00069 DD_RAM_ADDR     EQU     0x080   ; Least Significant 7-bit are for address
+  00000080            00070 DD_RAM_UL       EQU     0x080   ; Upper Left coner of the Display
+                      00071 ;
+                      00072 
+                      00073         cblock 20h
+  00000020            00074                 Byte
+  00000021            00075                 Count
+  00000022            00076                 Count1  
+  00000023            00077                 Count2  
+                      00078         endc    
+                      00079 
+                      00080 
+0000                  00081 INIT
+0000   1683           00082         BSF     Status,RP0      ;Switch to Rambank 1
+0001   3041           00083         MOVLW   B'01000001'     ;
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   019F           00084         CLRF    Adcon1          ;Set all bits on PortA to analogue
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0003   179F           00085         BSF     Adcon1,7        ;Set ADFM to righthand justification
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   0185           00086         CLRF    TrisA           ;
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0005   1405           00087         BSF     TrisA,0         ;Set RA0 as input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0006   0186           00088         CLRF    TrisB           ;Set All Bits PortB to output
+0007   1283           00089         BCF     Status,RP0      ;Switch to Rambank 0
+0008   01A4           00090         CLRF    Unit            ;Reset The Unit Value
+0009   01A5           00091         CLRF    Ten             ;Reset The Tens Value
+000A   01A6           00092         CLRF    Hundred         ;Reset The Hundreds Value
+000B   3041           00093         MOVLW   B'01000001'     ;Set ADC to Channel 0 (RA0), Switch on ADC, Set Sampling Rate to Fosc/32
+000C   009F           00094         MOVWF   Adcon0          ;//
+000D                  00095 START
+000D   200F           00096         CALL    ADREAD          ;Go into the Km/h reading part
+000E   280D           00097         GOTO    START           ;Loop to start
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000F                  00098 ADREAD
+000F   01A4           00099         CLRF    Unit            ;Reset The Unit Value
+0010   01A5           00100         CLRF    Ten             ;Reset The Tens Value
+0011   01A6           00101         CLRF    Hundred         ;Reset The Hundreds Value
+0012   151F           00102         BSF     Adcon0,GO       ; Start A/D Conversion
+0013   213B           00103         CALL    DELAY           ; Delay for aquisition
+0014   2056           00104         CALL    CONVERT         ; Convert AD value to Units, Tens, Hundreds
+0015   2019           00105         CALL    UPDATEDISP      ; Update LCD Displays
+0016   1E05           00106         BTFSS   PortA,4         ; Keep showing km/h unit switch pressed for next mode
+0017   0008           00107         RETURN                  ;
+0018   280F           00108         GOTO    ADREAD          ;
+0019                  00109 UPDATEDISP
+0019   20E8           00110         call    InitLCD
+001A   2123           00111         call    clrLCD
+001B   2126           00112         call    L1homeLCD       ;cursor on line 1
+001C   3020           00113         movlw   ' '
+001D   2105           00114         call    putcLCD
+001E   3020           00115         movlw   ' '
+001F   2105           00116         call    putcLCD
+0020   3020           00117         movlw   ' '
+0021   2105           00118         call    putcLCD
+0022   3020           00119         movlw   ' '
+0023   2105           00120         call    putcLCD
+0024   3041           00121         movlw   'A'
+0025   2105           00122         call    putcLCD
+0026   302F           00123         movlw   '/'
+0027   2105           00124         call    putcLCD
+0028   3044           00125         movlw   'D'
+0029   2105           00126         call    putcLCD
+002A   3020           00127         movlw   ' '
+002B   2105           00128         call    putcLCD
+002C   3056           00129         movlw   'V'
+002D   2105           00130         call    putcLCD
+002E   3061           00131         movlw   'a'
+002F   2105           00132         call    putcLCD
+0030   306C           00133         movlw   'l'
+0031   2105           00134         call    putcLCD
+0032   3075           00135         movlw   'u'
+0033   2105           00136         call    putcLCD
+0034   3065           00137         movlw   'e'
+0035   2105           00138         call    putcLCD
+                      00139 
+0036   2129           00140         call    L2homeLCD
+0037   3020           00141         movlw   ' '
+0038   2105           00142         call    putcLCD
+0039   3020           00143         movlw   ' '
+003A   2105           00144         call    putcLCD
+003B   3020           00145         movlw   ' '
+003C   2105           00146         call    putcLCD
+003D   3020           00147         movlw   ' '
+003E   2105           00148         call    putcLCD
+003F   0826           00149         movf    Hundred,W
+0040   3E31           00150         addlw   31h
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0041   2105           00151         call    putcLCD
+0042   0825           00152         movf    Ten,W
+0043   3E31           00153         addlw   31h
+0044   2105           00154         call    putcLCD
+0045   0824           00155         movf    Unit,W
+0046   3E31           00156         addlw   31h;
+0047   2105           00157         call    putcLCD
+0048   3020           00158         movlw   ' '
+0049   2105           00159         call    putcLCD
+004A   306D           00160         movlw   'm'
+004B   2105           00161         call    putcLCD
+004C   3056           00162         movlw   'V'
+004D   2105           00163         call    putcLCD
+004E   3020           00164         movlw   ' '
+004F   2105           00165         call    putcLCD
+0050   3020           00166         movlw   ' '
+0051   2105           00167         call    putcLCD
+0052   3020           00168         movlw   ' '
+0053   2105           00169         call    putcLCD
+0054   213B           00170         CALL    DELAY           ;
+0055   0008           00171         RETURN                  ;
+0056                  00172 CONVERT 
+0056   1683           00173         BSF     Status,RP0      ; Move to Bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0057   081E           00174         MOVF    Adl,W           ;
+0058   1283           00175         BCF     Status,RP0      ;
+0059   00A7           00176         MOVWF   Temp            ;
+005A   1BA7           00177         BTFSC   Temp,7          ; Check 512
+005B   2083           00178         CALL    CHK512          ;
+005C   20D2           00179         CALL    CHKUNIT         ;
+005D   20DD           00180         CALL    CHKTEN          ;
+005E   1B27           00181         BTFSC   Temp,6          ;
+005F   208C           00182         CALL    CHK256          ;
+0060   20D2           00183         CALL    CHKUNIT         ;
+0061   20DD           00184         CALL    CHKTEN          ;
+0062   1AA7           00185         BTFSC   Temp,5          ;
+0063   209A           00186         CALL    CHK128          ;
+0064   20D2           00187         CALL    CHKUNIT         ;
+0065   20DD           00188         CALL    CHKTEN          ;
+0066   1A27           00189         BTFSC   Temp,4          ;
+0067   20A6           00190         CALL    CHK64           ;
+0068   20D2           00191         CALL    CHKUNIT         ;
+0069   20DD           00192         CALL    CHKTEN          ;
+006A   19A7           00193         BTFSC   Temp,3          ;
+006B   20B1           00194         CALL    CHK32           ;
+006C   20D2           00195         CALL    CHKUNIT         ;
+006D   20DD           00196         CALL    CHKTEN          ;
+006E   1927           00197         BTFSC   Temp,2          ;
+006F   20B7           00198         CALL    CHK16           ;
+0070   20D2           00199         CALL    CHKUNIT         ;
+0071   20DD           00200         CALL    CHKTEN          ;
+0072   18A7           00201         BTFSC   Temp,1          ;
+0073   20BF           00202         CALL    CHK8            ;
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0074   20D2           00203         CALL    CHKUNIT         ;
+0075   20DD           00204         CALL    CHKTEN          ;
+0076   1827           00205         BTFSC   Temp,0          ;
+0077   20C8           00206         CALL    CHK4            ;
+0078   20D2           00207         CALL    CHKUNIT         ;
+0079   20DD           00208         CALL    CHKTEN          ;
+007A   189E           00209         BTFSC   Adh,1           ;
+007B   20CD           00210         CALL    CHK2            ;
+007C   20D2           00211         CALL    CHKUNIT         ;
+007D   20DD           00212         CALL    CHKTEN          ;
+007E   181E           00213         BTFSC   Adh,0           ;       
+007F   20D0           00214         CALL    CHK1            ;
+0080   20D2           00215         CALL    CHKUNIT         ;
+0081   20DD           00216         CALL    CHKTEN          ;
+0082   0008           00217         RETURN                  ;
+0083                  00218 CHK512
+Message[305]: Using default destination of 1 (file).
+0083   0AA6           00219         INCF    Hundred         ; Add 5 to hundred
+Message[305]: Using default destination of 1 (file).
+0084   0AA6           00220         INCF    Hundred         ; 
+Message[305]: Using default destination of 1 (file).
+0085   0AA6           00221         INCF    Hundred         ; 
+Message[305]: Using default destination of 1 (file).
+0086   0AA6           00222         INCF    Hundred         ; 
+Message[305]: Using default destination of 1 (file).
+0087   0AA6           00223         INCF    Hundred         ; 
+Message[305]: Using default destination of 1 (file).
+0088   0AA5           00224         INCF    Ten             ; Add 1 to ten
+Message[305]: Using default destination of 1 (file).
+0089   0AA4           00225         INCF    Unit            ; Add 2 to unit
+Message[305]: Using default destination of 1 (file).
+008A   0AA4           00226         INCF    Unit            ;
+008B   0008           00227         RETURN
+008C                  00228 CHK256
+Message[305]: Using default destination of 1 (file).
+008C   0AA6           00229         INCF    Hundred         ; Add 2 to hundred
+Message[305]: Using default destination of 1 (file).
+008D   0AA6           00230         INCF    Hundred         ; 
+Message[305]: Using default destination of 1 (file).
+008E   0AA5           00231         INCF    Ten             ; Add 5 to ten
+Message[305]: Using default destination of 1 (file).
+008F   0AA5           00232         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+0090   0AA5           00233         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+0091   0AA5           00234         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+0092   0AA5           00235         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+0093   0AA4           00236         INCF    Unit            ; Add 6 to unit
+Message[305]: Using default destination of 1 (file).
+0094   0AA4           00237         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0095   0AA4           00238         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+0096   0AA4           00239         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+0097   0AA4           00240         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+0098   0AA4           00241         INCF    Unit            ;
+0099   0008           00242         RETURN
+009A                  00243 CHK128
+Message[305]: Using default destination of 1 (file).
+009A   0AA6           00244         INCF    Hundred         ; Add 1 to hundred
+Message[305]: Using default destination of 1 (file).
+009B   0AA5           00245         INCF    Ten             ; Add 2 to ten
+Message[305]: Using default destination of 1 (file).
+009C   0AA5           00246         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+009D   0AA4           00247         INCF    Unit            ; Add 8 to unit
+Message[305]: Using default destination of 1 (file).
+009E   0AA4           00248         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+009F   0AA4           00249         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00A0   0AA4           00250         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00A1   0AA4           00251         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00A2   0AA4           00252         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00A3   0AA4           00253         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00A4   0AA4           00254         INCF    Unit            ;
+00A5   0008           00255         RETURN
+00A6                  00256 CHK64
+Message[305]: Using default destination of 1 (file).
+00A6   0AA5           00257         INCF    Ten             ; Add 6 to ten
+Message[305]: Using default destination of 1 (file).
+00A7   0AA5           00258         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00A8   0AA5           00259         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00A9   0AA5           00260         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00AA   0AA5           00261         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00AB   0AA5           00262         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00AC   0AA4           00263         INCF    Unit            ; Add 4 to unit
+Message[305]: Using default destination of 1 (file).
+00AD   0AA4           00264         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00AE   0AA4           00265         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00AF   0AA4           00266         INCF    Unit            ;
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00B0   0008           00267         RETURN
+00B1                  00268 CHK32
+Message[305]: Using default destination of 1 (file).
+00B1   0AA5           00269         INCF    Ten             ; Add 3 to ten
+Message[305]: Using default destination of 1 (file).
+00B2   0AA5           00270         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00B3   0AA5           00271         INCF    Ten             ; 
+Message[305]: Using default destination of 1 (file).
+00B4   0AA4           00272         INCF    Unit            ; Add 2 to unit
+Message[305]: Using default destination of 1 (file).
+00B5   0AA4           00273         INCF    Unit            ;
+00B6   0008           00274         RETURN
+00B7                  00275 CHK16
+Message[305]: Using default destination of 1 (file).
+00B7   0AA5           00276         INCF    Ten             ; Add 1 to ten
+Message[305]: Using default destination of 1 (file).
+00B8   0AA4           00277         INCF    Unit            ; Add 6 to unit
+Message[305]: Using default destination of 1 (file).
+00B9   0AA4           00278         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00BA   0AA4           00279         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00BB   0AA4           00280         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00BC   0AA4           00281         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00BD   0AA4           00282         INCF    Unit            ;
+00BE   0008           00283         RETURN
+00BF                  00284 CHK8    
+Message[305]: Using default destination of 1 (file).
+00BF   0AA4           00285         INCF    Unit            ; Add 8 to unit
+Message[305]: Using default destination of 1 (file).
+00C0   0AA4           00286         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00C1   0AA4           00287         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00C2   0AA4           00288         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00C3   0AA4           00289         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00C4   0AA4           00290         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00C5   0AA4           00291         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00C6   0AA4           00292         INCF    Unit            ;
+00C7   0008           00293         RETURN
+00C8                  00294 CHK4
+Message[305]: Using default destination of 1 (file).
+00C8   0AA4           00295         INCF    Unit            ; Add 4 to unit
+Message[305]: Using default destination of 1 (file).
+00C9   0AA4           00296         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00CA   0AA4           00297         INCF    Unit            ;
+Message[305]: Using default destination of 1 (file).
+00CB   0AA4           00298         INCF    Unit            ;
+00CC   0008           00299         RETURN                  ;
+00CD                  00300 CHK2
+Message[305]: Using default destination of 1 (file).
+00CD   0AA4           00301         INCF    Unit            ; Add 2 to unit
+Message[305]: Using default destination of 1 (file).
+00CE   0AA4           00302         INCF    Unit            ;
+00CF   0008           00303         RETURN                  ;
+00D0                  00304 CHK1
+Message[305]: Using default destination of 1 (file).
+00D0   0AA4           00305         INCF    Unit            ; Add 1 to unit
+00D1   0008           00306         RETURN                  ;
+                      00307 
+                      00308         
+00D2                  00309 CHKUNIT
+00D2   0824           00310         MOVF    Unit,0          ;
+00D3   3C09           00311         SUBLW   09h             ; Loop 9 times
+00D4   1903           00312         BTFSC   Status,2        ; Unit = 9 so return
+00D5   0008           00313         RETURN                  
+00D6   1C03           00314         BTFSS   Status,0        ; Unit < 9 so return
+00D7   20D9           00315         CALL    DO1             ;
+00D8   0008           00316         RETURN                  
+00D9                  00317 DO1
+Message[305]: Using default destination of 1 (file).
+00D9   0AA5           00318         INCF    Ten             ;
+00DA   300A           00319         MOVLW   B'00001010'     ;
+00DB   02A4           00320         SUBWF   Unit,1          ;       
+00DC   0008           00321         RETURN  
+                      00322         
+00DD                  00323 CHKTEN
+00DD   0825           00324         MOVF    Ten,0           ;
+00DE   3C09           00325         SUBLW   09h             ; Subtract 9 times
+00DF   1903           00326         BTFSC   Status,2        ; Ten = 9 so return
+00E0   0008           00327         RETURN                  
+00E1   1C03           00328         BTFSS   Status,0        ; Unit < 9 so add difference to hundred
+00E2   20E4           00329         CALL    DO2             ;
+00E3   0008           00330         RETURN                  
+00E4                  00331 DO2
+Message[305]: Using default destination of 1 (file).
+00E4   0AA6           00332         INCF    Hundred         ;
+00E5   300A           00333         MOVLW   B'00001010'     ;
+00E6   02A5           00334         SUBWF   Ten,1           ;       
+00E7   0008           00335         RETURN
+                      00336 
+                      00337 ;*******************************************************************
+                      00338 ;* The LCD Module Subroutines                                      *
+                      00339 ;* Command sequence for 2 lines of 5x16 characters                 *
+                      00340 ;*******************************************************************
+00E8                  00341 InitLCD
+00E8   1283           00342         bcf     STATUS,RP0      ; Bank 0
+00E9   1303           00343         bcf     STATUS,RP1
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00EA   0186           00344         clrf    LCD_DATA        ; Clear LCD data & control bits
+00EB   1683           00345         bsf     STATUS,RP0      ; Bank 1
+00EC   30C0           00346         movlw   0xc0            ; Initialize inputs/outputs for LCD
+00ED   0086           00347         movwf   LCD_DATA
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+00EE   188E           00348         btfsc   PCON,NOT_POR    ; Check to see if POR reset or other
+00EF   28FF           00349         goto    InitLCDEnd
+                      00350 
+00F0   1283           00351         bcf     STATUS,RP0      ; If POR reset occured, full init LCD
+00F1   2130           00352         call    LongDelay
+00F2   3002           00353         movlw   0x02            ; Init for 4-bit interface
+00F3   0086           00354         movwf   LCD_DATA
+00F4   1606           00355         bsf     LCD_CNTL, E
+00F5   1206           00356         bcf     LCD_CNTL, E
+00F6   2130           00357         call    LongDelay
+                      00358 
+00F7   3028           00359         movlw   b'00101000'
+00F8   2114           00360         call    SendCmd
+00F9   300C           00361         movlw   DISP_ON         ; Turn display on
+00FA   2114           00362         call    SendCmd
+00FB   3006           00363         movlw   ENTRY_INC       ; Configure cursor movement
+00FC   2114           00364         call    SendCmd
+00FD   3080           00365         movlw   DD_RAM_ADDR     ; Set writes for display memory
+00FE   2114           00366         call    SendCmd
+                      00367 
+00FF                  00368 InitLCDEnd                      ; Always clear the LCD and set
+00FF   1283           00369         bcf     STATUS,RP0      ; the POR bit when exiting
+0100   2123           00370         call    clrLCD
+0101   1683           00371         bsf     STATUS,RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0102   148E           00372         bsf     PCON,NOT_POR
+0103   1283           00373         bcf     STATUS,RP0
+0104   0008           00374         return
+                      00375 
+                      00376 ;*******************************************************************
+                      00377 ;*SendChar - Sends character to LCD                                *
+                      00378 ;*This routine splits the character into the upper and lower       * 
+                      00379 ;*nibbles and sends them to the LCD, upper nibble first.           *
+                      00380 ;*******************************************************************
+0105                  00381 putcLCD
+0105   00A0           00382         movwf   Byte            ; Save WREG in Byte variable
+0106   212C           00383         call    Delay
+0107   0E20           00384         swapf   Byte,W          ; Write upper nibble first
+0108   390F           00385         andlw   0x0f
+0109   0086           00386         movwf   LCD_DATA
+010A   1686           00387         bsf     LCD_CNTL, RS    ; Set for data
+010B   1606           00388         bsf     LCD_CNTL, E     ; Clock nibble into LCD
+010C   1206           00389         bcf     LCD_CNTL, E
+010D   0820           00390         movf    Byte,W          ; Write lower nibble last
+010E   390F           00391         andlw   0x0f
+010F   0086           00392         movwf   LCD_DATA
+0110   1686           00393         bsf     LCD_CNTL, RS    ; Set for data
+0111   1606           00394         bsf     LCD_CNTL, E     ; Clock nibble into LCD
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0112   1206           00395         bcf     LCD_CNTL, E
+0113   0008           00396         return
+                      00397 
+                      00398 ;*******************************************************************
+                      00399 ;* SendCmd - Sends command to LCD                                  *
+                      00400 ;* This routine splits the command into the upper and lower        * 
+                      00401 ;* nibbles and sends them to the LCD, upper nibble first.          *
+                      00402 ;*******************************************************************
+0114                  00403 SendCmd
+0114   00A0           00404         movwf   Byte            ; Save WREG in Byte variable
+0115   212C           00405         call    Delay
+0116   0E20           00406         swapf   Byte,W          ; Send upper nibble first
+0117   390F           00407         andlw   0x0f
+0118   0086           00408         movwf   LCD_DATA
+0119   1286           00409         bcf     LCD_CNTL,RS     ; Clear for command
+011A   1606           00410         bsf     LCD_CNTL,E      ; Clock nibble into LCD
+011B   1206           00411         bcf     LCD_CNTL,E
+011C   0820           00412         movf    Byte,W          ; Write lower nibble last
+011D   390F           00413         andlw   0x0f
+011E   0086           00414         movwf   LCD_DATA
+011F   1286           00415         bcf     LCD_CNTL,RS     ; Clear for command
+0120   1606           00416         bsf     LCD_CNTL,E      ; Clock nibble into LCD
+0121   1206           00417         bcf     LCD_CNTL,E
+0122   0008           00418         return
+                      00419 
+                      00420 ;*******************************************************************
+                      00421 ;* clrLCD - Clear the contents of the LCD                          *
+                      00422 ;*******************************************************************
+0123                  00423 clrLCD
+0123   3001           00424         movlw   CLR_DISP        ; Send the command to clear display
+0124   2114           00425         call    SendCmd
+0125   0008           00426         return
+                      00427 
+                      00428 
+                      00429 ;*******************************************************************
+                      00430 ;* L1homeLCD - Moves the cursor to home position on Line 1         *
+                      00431 ;*******************************************************************
+0126                  00432 L1homeLCD
+0126   3080           00433         movlw   DD_RAM_ADDR|0x00 ; Send command to move cursor to 
+0127   2114           00434         call    SendCmd          ; home position on line 1
+0128   0008           00435         return
+                      00436 
+                      00437 ;*******************************************************************
+                      00438 ;* L2homeLCD - Moves the cursor to home position on Line 2         *
+                      00439 ;*******************************************************************
+0129                  00440 L2homeLCD
+0129   30A8           00441         movlw   DD_RAM_ADDR|0x28 ; Send command to move cursor to
+012A   2114           00442         call    SendCmd          ; home position on line 2
+012B   0008           00443         return
+                      00444 
+                      00445 
+                      00446 ;*******************************************************************
+                      00447 ;* Delay - Generic LCD delay                                       *
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00448 ;* Since the microcontroller can not read the busy flag of the     *
+                      00449 ;* LCD, a specific delay needs to be executed between writes to    *
+                      00450 ;* the LCD.                                                        *
+                      00451 ;*******************************************************************
+012C                  00452 Delay                           ; 2 cycles for call
+012C   01A1           00453         clrf    Count           ; 1 cycle to clear counter variable
+012D                  00454 Dloop
+012D   0BA1           00455         decfsz  Count,f         ; These two instructions provide a
+012E   292D           00456         goto    Dloop           ; (256 * 3) -1 cycle count
+012F   0008           00457         return                  ; 2 cycles for return
+                      00458 
+                      00459 
+                      00460 ;*******************************************************************
+                      00461 ;* LongDelay - Generic long LCD delay                              *
+                      00462 ;* POR delay for the LCD panel.                                    *
+                      00463 ;*******************************************************************
+0130                  00464 LongDelay
+0130   01A1           00465         clrf    Count
+0131   01A2           00466         clrf    Count1
+0132   3003           00467         movlw   0x03
+0133   00A3           00468         movwf   Count2
+0134                  00469 LDloop
+0134   0BA1           00470         decfsz  Count,f
+0135   2934           00471         goto    LDloop
+0136   0BA2           00472         decfsz  Count1,f
+0137   2934           00473         goto    LDloop
+0138   0BA3           00474         decfsz  Count2,f
+0139   2934           00475         goto    LDloop
+013A   0008           00476         return
+                      00477 
+013B                  00478 DELAY
+                      00479         ;RETURN                 ;Used for simulation purposes
+013B   3001           00480         MOVLW   01h             ;Set delay for 0.5 Second
+013C   00A2           00481         MOVWF   Loop3           ;Set Loop3 to Loop 3 Times
+013D                  00482 LOOP    
+013D   0BA0           00483         DECFSZ  Loop1,1         ;Loop 255 times then move to next loop
+013E   293D           00484         Goto    LOOP            ;Go Back to the beginning of the Loop
+013F   0BA1           00485         DECFSZ  Loop2,1         ;Loop 255 times then move to next loop
+0140   293D           00486         Goto    LOOP            ;Go Back to the beginning of the Loop   
+0141   0BA2           00487         DECFSZ  Loop3,1         ;Loop 5 times then move to next loop
+0142   293D           00488         Goto    LOOP            ;Go Back to the beginning of the Loop
+0143   0008           00489         RETURN                  ;Go back and execute instruction after last call
+                      00490         end                     ;End of Source
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 12
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADREAD                            0000000F
+ADRESH                            0000001E
+ADRESL                            0000009E
+Adcon0                            0000001F
+Adcon1                            0000009F
+Adh                               0000001E
+Adl                               0000009E
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+Byte                              00000020
+C                                 00000000
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHK1                              000000D0
+CHK128                            0000009A
+CHK16                             000000B7
+CHK2                              000000CD
+CHK256                            0000008C
+CHK32                             000000B1
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 13
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+CHK4                              000000C8
+CHK512                            00000083
+CHK64                             000000A6
+CHK8                              000000BF
+CHKTEN                            000000DD
+CHKUNIT                           000000D2
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CKE                               00000006
+CKP                               00000004
+CLR_DISP                          00000001
+CONVERT                           00000056
+CREN                              00000004
+CSRC                              00000007
+Count                             00000021
+Count1                            00000022
+Count2                            00000023
+Counter                           00000023
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+DD_RAM_ADDR                       00000080
+DD_RAM_UL                         00000080
+DELAY                             0000013B
+DISP_OFF                          00000008
+DISP_ON                           0000000C
+DISP_ON_B                         0000000F
+DISP_ON_C                         0000000E
+DO1                               000000D9
+DO2                               000000E4
+D_A                               00000005
+Delay                             0000012C
+Dloop                             0000012D
+E                                 00000004
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+ENTRY_DEC                         00000004
+ENTRY_DEC_S                       00000005
+ENTRY_INC                         00000006
+ENTRY_INC_S                       00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+GCEN                              00000007
+GIE                               00000007
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 14
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+GO                                00000002
+GO_DONE                           00000002
+Hundred                           00000026
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INIT                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+InitLCD                           000000E8
+InitLCDEnd                        000000FF
+L1homeLCD                         00000126
+L2homeLCD                         00000129
+LCD_CNTL                          00000006
+LCD_DATA                          00000006
+LDloop                            00000134
+LOOP                              0000013D
+LongDelay                         00000130
+Loop1                             00000020
+Loop2                             00000021
+Loop3                             00000022
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 15
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+PortA                             00000005
+PortB                             00000006
+R                                 00000002
+RBIE                              00000003
+RBIF                              00000000
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+READ_WRITE                        00000002
+RP0                               00000005
+RP1                               00000006
+RS                                00000005
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_W                               00000002
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 16
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+START                             0000000D
+STATUS                            00000003
+SYNC                              00000004
+SendCmd                           00000114
+Status                            00000003
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISB                             00000086
+TRISC                             00000087
+TRISD                             00000088
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 17
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+Temp                              00000027
+Ten                               00000025
+TrisA                             00000085
+TrisB                             00000086
+UA                                00000001
+UPDATEDISP                        00000019
+Unit                              00000024
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00000FCF
+_CP_HALF                          00001FDF
+_CP_OFF                           00003FFF
+_CP_UPPER_256                     00002FEF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_HS_OSC                           00003FFE
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_ENABLE_OFF                   00003DFF
+_WRT_ENABLE_ON                    00003FFF
+_XT_OSC                           00003FFD
+__16F877                          00000001
+clrLCD                            00000123
+putcLCD                           00000105
+MPASM 03.00 Released         NEWADCON.ASM   10-21-2003  20:40:14         PAGE 18
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0100 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0140 : XXXX------------ ---------------- ---------------- ----------------
+2000 : -------X-------- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:   324
+Program Memory Words Free:  7868
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :    79 reported,     0 suppressed
+
+

@@ -1,0 +1,546 @@
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Name : Simon, Gordon                                   *
+                      00003 ; * Date : 30/08/2003                                      *
+                      00004 ; * Description :  Program Reads an analogue value from    * 
+                      00005 ; *                an LDR and converts it to a digital     *
+                      00006 ; *                value and is sent to a remote reciever  *
+                      00007 ; *                (PC or PIC)                             *
+                      00008 ; **********************************************************
+                      00009         
+                      00010         list p=16F877
+                      00011         include <p16f877.inc>
+                      00001         LIST
+                      00002 ; P16F877.INC  Standard Header File, Version 1.00    Microchip Technology, Inc.
+                      00373         LIST
+  00000002            00012 PCL             EQU     02h     ; Address of program counter
+  00000001            00013 F               EQU     1h      ; Result of operation into File
+  00000000            00014 W               EQU     0h      ; Result of operation into Working Register
+  00000003            00015 Status          EQU     03h     ; Address of status register
+  00000005            00016 RP0             EQU     05h     ; Bit 5 of Status Register
+  00000085            00017 TrisA           EQU     85h     ; Address of Tristate Buffer A.
+  00000087            00018 TrisC           EQU     87h     ; Address of Tristate Buffer C.
+  00000005            00019 PortA           EQU     05h     ; Address of Port A.
+  00000023            00020 Counter         EQU     23h     ; Stores the status of counter
+  0000001E            00021 Adh             EQU     1Eh     ; High Result of A/D Conversion
+  0000009E            00022 Adl             EQU     9Eh     ; Low Result of A/D Conversion
+  0000009F            00023 Adcon1          EQU     9Fh     ; Address of Adcon1.
+  0000001F            00024 Adcon0          EQU     1Fh     ; Analogue Digital Register
+  00000002            00025 GO              EQU     02h     ; GO/Done bit for Adconverter
+  00000001            00026 TRMT            EQU     01h     ; Transmit Status Register
+  00000020            00027 Loop1           EQU     20h     ; Count variable for the first loop
+  00000021            00028 Loop2           EQU     21h     ; Count variable for the second loop
+  00000022            00029 Loop3           EQU     22h     ; Count variable for the first loop
+  00000027            00030 temp            EQU     27h     ; Temporary Variable
+  00000028            00031 Tempreg         EQU     28h     ; Temp Recieve Register Storage
+  00000029            00032 H_byte          equ     29H     ; Upper Byte for BCD to Decimal Conversion
+  00000030            00033 L_byte          equ     30H     ; Lower Byte for BCD to Decimal Conversion 
+  00000031            00034 R0              equ     31H     ; Result 0 of BCD to Decimal Conversion
+  00000032            00035 R1              equ     32H     ; Result 1 of BCD to Decimal Conversion
+  00000033            00036 R2              equ     33H     ; Result 2 of BCD to Decimal Conversion
+  00000034            00037 Count           equ     34H     ; Counter Variable
+                      00038 
+                      00039 ;Serial Port Registers
+  00000098            00040 TXSTA           EQU     98h     ; Serial Port Transmit Control Register
+  00000099            00041 SPBRG           EQU     99h     ; Serial Port Baud Rate Generator Setting Register
+  00000019            00042 TXREG           EQU     19h     ; Serial Port Transmit register
+  00000018            00043 RCSTA           EQU     18h     ; Serial Port Receive register
+                      00044 
+0000                  00045 INIT
+0000   1683           00046         BSF     Status,RP0      ; Switch to Rambank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0001   019F           00047         CLRF    Adcon1          ; Set all bits on PortA to analogue     
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   179F           00048         BSF     Adcon1,7        ; Set ADFM to righthand justification
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0003   0185           00049         CLRF    TrisA           ; Set all bits on trisA to outputs
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   1405           00050         BSF     TrisA,0         ; Set RA0 as input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0005   1707           00051         BSF     TrisC,6         ; Set TrisC bit 6 to output
+                      00052 ;Serial Port Init
+0006   3019           00053         MOVLW   19h             ; Set the baud rate to 9600 and brgh=1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0007   0099           00054         MOVWF   SPBRG           ; //
+0008   3024           00055         MOVLW   b'00100100'     ; Asynchronous, brgh = 1, Transmit enable
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0009   0098           00056         MOVWF   TXSTA           ; //
+000A   1283           00057         BCF     Status,5        ; Move to Memory Bank 0
+000B   3080           00058         MOVLW   b'10000000'     ; Enable Serial Port
+000C   0098           00059         MOVWF   RCSTA           ; //    
+                      00060 ;ADcon Init     
+000D   3081           00061         MOVLW   B'10000001'     ; Set ADC to Channel 1 (RA1), Switch on ADC, Set Sampling Rate to Fosc/3
+                            2
+000E   009F           00062         MOVWF   Adcon0          ; //
+000F                  00063 START
+000F   151F           00064         BSF     Adcon0,GO       ; Start A/D Conversion
+                      00065         ;CALL    DELAY          ; Short Delay for aquire voltage
+0010   1683           00066         BSF     STATUS,5        ; Move to bank 1  
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0011   081E           00067         MOVF    Adl,W           ; Get Low byte A/D result
+0012   1283           00068         BCF     STATUS,5        ; Move to bank 0
+0013   00A7           00069         MOVWF   temp            ; Save A/D Result in Temporary space
+0014   1BA7           00070         BTFSC   temp,7          ; This part of the code is used to shift the A/D result.
+0015   17A9           00071         BSF     H_byte,7        ; We loose the 1 and 2 bits of A/D due to justification.
+0016   1B27           00072         BTFSC   temp,6          ; We must therefore shift the A/D result values two bits to the left
+0017   1729           00073         BSF     H_byte,6        ; so that the BCD to Decimal conversion is accurate
+Message[305]: Using default destination of 1 (file).
+0018   0DA7           00074         RLF     temp            ; //
+Message[305]: Using default destination of 1 (file).
+0019   0DA7           00075         RLF     temp            ; //
+001A   0827           00076         MOVF    temp,W          ; //
+001B   00B0           00077         MOVWF   L_byte          ; Put A/D value into memory for conversion procedure
+001C   2021           00078         CALL    CONVERT         ; Go and do the conversion
+001D   2047           00079         CALL    LIGHTRATIO      ; Take the result of BCD to DEC conversion and change it to a light mete
+                            r value
+001E   00A8           00080         MOVWF   Tempreg         ; Save Lightratio to temp location
+001F   2044           00081         CALL    SENDDATA        ; Send the value to serial port
+0020   280F           00082         GOTO    START           ; Loop back to start
+                      00083 
+0021                  00084 CONVERT:  
+                      00085 ; Source code for this conversion courtesy of Microchip
+                      00086 ;********************************************************************
+                      00087 ;                  Binary To BCD Conversion Routine
+                      00088 ;      This routine converts a 16 Bit binary Number to a 5 Digit
+                      00089 ; BCD Number. This routine is useful since PIC16C55 & PIC16C57
+                      00090 ; have  two 8 bit ports and one 4 bit port ( total of 5 BCD digits)
+                      00091 ;
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00092 ;       The 16 bit binary number is input in locations H_byte and
+                      00093 ; L_byte with the high byte in H_byte.
+                      00094 ;       The 5 digit BCD number is returned in R0, R1 and R2 with R0
+                      00095 ; containing the MSD in its right most nibble.
+                      00096 ;
+                      00097 ;   Performance :
+                      00098 ;               Program Memory  :       35
+                      00099 ;               Clock Cycles    :       885
+                      00100 ;
+                      00101 ;
+                      00102 ;       Revision Date:   
+                      00103 ;                         1-13-97      Compatibility with MPASMWIN 1.40
+                      00104 ;
+                      00105 ;*******************************************************************;
+                      00106 
+                      00107 
+0021   1003           00108         bcf     STATUS,0                ; clear the carry bit
+0022   3010           00109         movlw   D'16'
+0023   00B4           00110         movwf   Count
+0024   01B1           00111         clrf    R0
+0025   01B2           00112         clrf    R1
+0026   01B3           00113         clrf    R2
+0027   0DB0           00114 loop16  rlf     L_byte, F
+0028   0DA9           00115         rlf     H_byte, F
+0029   0DB3           00116         rlf     R2, F
+002A   0DB2           00117         rlf     R1, F
+002B   0DB1           00118         rlf     R0, F
+                      00119 ;
+002C   0BB4           00120         decfsz  Count, F
+002D   282F           00121         goto    adjDEC
+002E   3400           00122         RETLW   0
+                      00123 ;
+002F   3033           00124 adjDEC  movlw   R2
+0030   0084           00125         movwf   FSR
+0031   2039           00126         call    adjBCD
+                      00127 ;
+0032   3032           00128         movlw   R1
+0033   0084           00129         movwf   FSR
+0034   2039           00130         call    adjBCD
+                      00131 ;
+0035   3031           00132         movlw   R0
+0036   0084           00133         movwf   FSR
+0037   2039           00134         call    adjBCD
+                      00135 ;
+0038   2827           00136         goto    loop16
+                      00137 ;
+0039   3003           00138 adjBCD  movlw   3
+003A   0700           00139         addwf   0,W
+003B   00A7           00140         movwf   temp
+003C   19A7           00141         btfsc   temp,3          ; test if result > 7
+003D   0080           00142         movwf   0
+003E   3030           00143         movlw   30
+003F   0700           00144         addwf   0,W
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0040   00A7           00145         movwf   temp
+0041   1BA7           00146         btfsc   temp,7          ; test if result > 7
+0042   0080           00147         movwf   0               ; save as MSD
+0043   3400           00148         RETLW   0
+                      00149 ;**************************************************************************************
+                      00150 
+                      00151 
+0044                  00152 SENDDATA
+0044   0828           00153         MOVF    Tempreg,W       ; Load up the value to send
+0045   0099           00154         MOVWF   TXREG           ; Transmit A/D value
+0046   0008           00155         RETURN                  ; 
+                      00156 
+0047                  00157 LIGHTRATIO
+0047   0832           00158         MOVF    R1,W            ;Use decimal result to get lightmeter setting   
+0048   390F           00159         ANDLW   b'00001111'     ;Remove the highest nibble 
+0049   0782           00160         ADDWF   PCL,F           ;Return the value for meter display 
+004A   3400           00161         RETLW   B'00000000'     ;Decode 0
+004B   3480           00162         RETLW   B'10000000'     ;Decode 1
+004C   34C0           00163         RETLW   B'11000000'     ;Decode 2
+004D   34E0           00164         RETLW   B'11100000'     ;Decode 3
+004E   34F0           00165         RETLW   B'11110000'     ;Decode 4
+004F   34F8           00166         RETLW   B'11111000'     ;Decode 5
+0050   34FC           00167         RETLW   B'11111100'     ;Decode 6
+0051   34FE           00168         RETLW   B'11111110'     ;Decode 7
+0052   34FF           00169         RETLW   B'11111111'     ;Decode 8
+0053   34FF           00170         RETLW   B'11111111'     ;Decode 9
+0054                  00171 DELAY
+                      00172         ;RETURN                 ;Used for simulation purposes
+0054   3005           00173         MOVLW   05h             ;Set delay for 0.5 Second
+0055   00A2           00174         MOVWF   Loop3           ;Set Loop3 to Loop 3 Times
+0056                  00175 LOOP    
+0056   0BA0           00176         DECFSZ  Loop1,1         ;Loop 255 times then move to next loop
+0057   2856           00177         Goto    LOOP            ;Go Back to the beginning of the Loop
+0058   0BA1           00178         DECFSZ  Loop2,1         ;Loop 255 times then move to next loop
+0059   2856           00179         Goto    LOOP            ;Go Back to the beginning of the Loop   
+005A   0BA2           00180         DECFSZ  Loop3,1         ;Loop 5 times then move to next loop
+005B   2856           00181         Goto    LOOP            ;Go Back to the beginning of the Loop
+005C   0008           00182         RETURN                  ;Go back and execute instruction after last call
+                      00183         end                     ;End of Source
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  5
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+Adcon0                            0000001F
+Adcon1                            0000009F
+Adh                               0000001E
+Adl                               0000009E
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+C                                 00000000
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CKE                               00000006
+CKP                               00000004
+CONVERT                           00000021
+CREN                              00000004
+CSRC                              00000007
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  6
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Count                             00000034
+Counter                           00000023
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+DELAY                             00000054
+D_A                               00000005
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+H_byte                            00000029
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INIT                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTF                              00000001
+IRP                               00000007
+LIGHTRATIO                        00000047
+LOOP                              00000056
+L_byte                            00000030
+Loop1                             00000020
+Loop2                             00000021
+Loop3                             00000022
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  7
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+PortA                             00000005
+R                                 00000002
+R0                                00000031
+R1                                00000032
+R2                                00000033
+RBIE                              00000003
+RBIF                              00000000
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+READ_WRITE                        00000002
+RP0                               00000005
+RP1                               00000006
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  8
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_W                               00000002
+S                                 00000003
+SEN                               00000000
+SENDDATA                          00000044
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+START                             0000000F
+STATUS                            00000003
+SYNC                              00000004
+Status                            00000003
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE  9
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISB                             00000086
+TRISC                             00000087
+TRISD                             00000088
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+Tempreg                           00000028
+TrisA                             00000085
+TrisC                             00000087
+UA                                00000001
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00000FCF
+_CP_HALF                          00001FDF
+_CP_OFF                           00003FFF
+_CP_UPPER_256                     00002FEF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_HS_OSC                           00003FFE
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_ENABLE_OFF                   00003DFF
+_WRT_ENABLE_ON                    00003FFF
+_XT_OSC                           00003FFD
+MPASM 03.10 Released          LMETER2.ASM   11-8-2003  18:39:06         PAGE 10
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+__16F877                          00000001
+adjBCD                            00000039
+adjDEC                            0000002F
+loop16                            00000027
+temp                              00000027
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXX--- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    93
+Program Memory Words Free:  8099
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :    10 reported,     0 suppressed
+
+

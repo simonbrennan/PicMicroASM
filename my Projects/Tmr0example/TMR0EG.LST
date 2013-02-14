@@ -1,0 +1,114 @@
+MPASM 03.00 Released           TMR0EG.ASM   10-24-2003  14:59:49         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ;**********************************************************
+                      00002 ;* Program Name : Timer0 test program                     *
+                      00003 ;* Date written : 24 October 2003                         *
+                      00004 ;* Description : This program demostrates how to setup    *
+                      00005 ;*               and use the Tmr0 function of PIC         *
+                      00006 ;* Interupts : Yes, Tmr0 Interupt                         *
+                      00007 ;**********************************************************
+                      00008         list p=16f877
+                      00009 
+  00000005            00010 rp0             equ     05h     ; Bit 5 of Status Register (Ram bank select)
+  00000001            00011 f               equ     01h     ; Result of operation into File
+  00000000            00012 w               equ     00h     ; Result of operation into Working Register
+  00000001            00013 tmr0            equ     01h     ; Timer 0 register
+  00000002            00014 zflag           equ     02h     ; Zflag of status register
+  00000002            00015 pcl             equ     02h     ; Address of program counter latch
+  00000003            00016 status          equ     03h     ; Address of status register
+  00000005            00017 porta           equ     05h     ; Address of Port A.
+  00000008            00018 portd           equ     08h     ; Address of Port D.
+  0000000B            00019 intcon          equ     0Bh     ; Address of interupt control register
+  00000020            00020 loop1           equ     20h     ; Count variable for the first loop
+  00000021            00021 loop2           equ     21h     ; Count variable for the second loop
+  00000022            00022 loop3           equ     22h     ; Count variable for the third loop
+  00000023            00023 counter         equ     23h     ; Counter variable for running lights.
+  00000081            00024 optionreg       equ     81h     ; TMR0 option register
+  00000085            00025 trisa           equ     85h     ; Address of Tristate Buffer A.
+  00000088            00026 trisd           equ     88h     ; Address of Tristate Buffer D.
+  0000009F            00027 adcon1          equ     9Fh     ; Address of Adcon1.
+                      00028 
+0000                  00029         org     0000h   
+0000   2809           00030         goto    INIT
+                      00031         
+0004                  00032         org     0004h
+0004                  00033 INTSERVICE
+Message[305]: Using default destination of 1 (file).
+0004   0A88           00034         incf    portd
+0005   110B           00035         bcf     intcon,2        ; Clear the tmr0 flag
+0006   3015           00036         movlw   15h             ; Set TMR0 to count 6 times
+0007   0081           00037         movwf   tmr0            ; //
+0008   0009           00038         retfie
+                      00039 
+0009                  00040 INIT
+0009   3015           00041         movlw   15h             ; Set TMR0 to count 6 times
+000A   0081           00042         movwf   tmr0            ; //
+000B   30A0           00043         movlw   b'10100000'     ; Enable interupts, Enable TMR0 interupt
+000C   008B           00044         movwf   intcon          ; //
+000D   1683           00045         bsf     status,rp0      ; Move to rambank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000E   0188           00046         clrf    trisd           ; Set all bits on PortD to output
+000F   3086           00047         movlw   b'10000110'     ; Disable portb pullup resistors, Set tmr0 clock to internal,
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0010   0081           00048         movwf   optionreg       ; Set prescaler to tmr0, set prescaler 1:128
+0011   1283           00049         bcf     status,rp0
+0012   0188           00050         clrf    portd           ; Clear all outputs on portd
+MPASM 03.00 Released           TMR0EG.ASM   10-24-2003  14:59:49         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0013                  00051 START
+                      00052                                 ; Do nothing forever, Wait fo interupt
+0013   2813           00053         GOTO    START
+                      00054         end                     ;end of source
+MPASM 03.00 Released           TMR0EG.ASM   10-24-2003  14:59:49         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+INIT                              00000009
+INTSERVICE                        00000004
+START                             00000013
+__16F877                          00000001
+adcon1                            0000009F
+counter                           00000023
+f                                 00000001
+intcon                            0000000B
+loop1                             00000020
+loop2                             00000021
+loop3                             00000022
+optionreg                         00000081
+pcl                               00000002
+porta                             00000005
+portd                             00000008
+rp0                               00000005
+status                            00000003
+tmr0                              00000001
+trisa                             00000085
+trisd                             00000088
+w                                 00000000
+zflag                             00000002
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : X---XXXXXXXXXXXX XXXX------------ ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    17
+Program Memory Words Free:  8175
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     3 reported,     0 suppressed
+
+

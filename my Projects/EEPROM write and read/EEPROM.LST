@@ -1,0 +1,121 @@
+MPASM 03.00 Released           EEPROM.ASM   5-26-2003  12:37:49         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Name : Simon Brennan                                   *
+                      00003 ; * Student Number : 2021282                               *
+                      00004 ; * Date : 26/05/2003                                      *
+                      00005 ; * Description : This program is a prototype prog to      *
+                      00006 ; *               write and read to an from eeprom memory  *
+                      00007 ; *                                                        *
+                      00008 ; * Inputs : Address 03h  -> Status                        * 
+                      00009 ; *          Address 10Ch -> EEdata                        *
+                      00010 ; *          Address 18Ch -> EEcon1                        *
+                      00011 ; *          Address 23h  -> Counter                       *            
+                      00012 ; * Version: 1.0 - Works perfectly                         *
+                      00013 ; **********************************************************
+                      00014 
+                      00015         list p=16F877
+  00000003            00016 Status          EQU     03h     ; Address of status register
+  0000010C            00017 EEdata          EQU     10Ch    ; Address of EEdata register
+  0000010D            00018 EEadr           EQU     10Dh    ; Address of EEadr Register
+  0000018C            00019 EEcon1          EQU     18Ch    ; Address of EEcon1 register
+  0000018D            00020 EEcon2          EQU     18Dh    ;
+  00000007            00021 EEpgd           EQU     07h     ; Bit 7 of EEcon1
+  00000002            00022 WREN            EQU     02h     ; Bit 2 of EEcon1
+  00000001            00023 WR              EQU     01h     ; Bit 1 of EEcon1
+  00000000            00024 RD              EQU     00h     ; Bit 0 of EEcon1
+  00000005            00025 RP0             EQU     05h     ; Bank Select Bit in Status Register
+  00000006            00026 RP1             EQU     06h     ; Bank Select Bit in Status Register
+                      00027 
+0000                  00028         ORG 0000h
+0000                  00029 WRITE
+0000   1703           00030         BSF     Status,RP1      ; Switch to Bank 3
+0001   1683           00031         BSF     Status,RP0      ; //
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   188C           00032         BTFSC   EEcon1,WR       ; Check if EEPROM is writing and
+0003   2802           00033         GOTO    $-1             ; wait till it's finished
+0004   1283           00034         BCF     Status,RP0      ; Switch to Bank 2
+0005   3001           00035         MOVLW   01h             ; Set Address to write to
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0006   008D           00036         MOVWF   EEadr           ; //
+0007   3009           00037         MOVLW   09h             ; Data to write to Address
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0008   008C           00038         MOVWF   EEdata          ; //
+0009   1683           00039         BSF     Status,RP0      ; Switch to Bank 3
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000A   138C           00040         BCF     EEcon1,EEpgd    ; Set memory location   
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000B   150C           00041         BSF     EEcon1,WREN     ; Enable EEprom Writing
+000C   3055           00042         MOVLW   055h            ; Write 055h to EEcon2
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000D   008D           00043         MOVWF   EEcon2          ; //
+000E   30AA           00044         MOVLW   0AAh            ; Write AAh to EEcon2
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000F   008D           00045         MOVWF   EEcon2          ; //
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+MPASM 03.00 Released           EEPROM.ASM   5-26-2003  12:37:49         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0010   148C           00046         BSF     EEcon1,WR       ; Start write operation
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0011   110C           00047         BCF     EEcon1,WREN     ; Disable writing to EEprom
+0012                  00048 READ
+0012   1703           00049         BSF     Status,RP1      ; Switch to Bank 2
+0013   1283           00050         BCF     Status,RP0      ; //
+0014   3000           00051         MOVLW   0000h           ; Set Address in EEprom to 0000h
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0015   008C           00052         MOVWF   EEdata          ; //
+0016   1683           00053         BSF     Status,RP0      ; Switch to Bank 3
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0017   138C           00054         BCF     EEcon1,EEpgd    ; Point to Address in EEdata
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0018   140C           00055         BSF     EEcon1,RD       ; Read EEprom memory
+0019   1283           00056         BCF     Status,RP0      ; Switch to bank 2
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+001A   080C           00057         MOVF    EEdata,0        ; Read value from EEdata
+001B   3C05           00058         SUBLW   05h             ;
+                      00059         end 
+MPASM 03.00 Released           EEPROM.ASM   5-26-2003  12:37:49         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EEadr                             0000010D
+EEcon1                            0000018C
+EEcon2                            0000018D
+EEdata                            0000010C
+EEpgd                             00000007
+RD                                00000000
+READ                              00000012
+RP0                               00000005
+RP1                               00000006
+Status                            00000003
+WR                                00000001
+WREN                              00000002
+WRITE                             00000000
+__16F877                          00000001
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXX---- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    28
+Program Memory Words Free:  8164
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :    13 reported,     0 suppressed
+
+

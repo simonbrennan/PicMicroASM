@@ -1,0 +1,152 @@
+MPASM 03.00 Released             LAB7.ASM   4-24-2003  16:15:07         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Name : Simon Brennan                                   *
+                      00003 ; * Student Number : 2021282                               *
+                      00004 ; * Date : 19/04/2003                                      *
+                      00005 ; * Assignment No : LAB7.asm                               *
+                      00006 ; * Description : This program is a light dimmer controller*
+                      00007 ; *               When switch one is pressed the light     *
+                      00008 ; *               will brighten, when switch 2 is pressed  *
+                      00009 ; *               the light will become dimmer.            *
+                      00010 ; *                                                        *
+                      00011 ; * Inputs : Address 03h -> Status                         *
+                      00012 ; *          Address 88h -> TrisD                          *
+                      00013 ; *          Address 85h -> TrisA                          *
+                      00014 ; *          Address 20h -> Loop1                          *    
+                      00015 ; *          Address 21h -> Loop2                          *
+                      00016 ; *          Address 22h -> Loop3                          *            
+                      00017 ; *          Address 05h -> PortA                          *
+                      00018 ; *          Address 9Fh -> Adcon1                         *
+                      00019 ; * Outputs: Address 03h -> PortD                          *
+                      00020 ; *                                                        *
+                      00021 ; * Version: 1.0 - Works perfectly                         *
+                      00022 ; **********************************************************
+                      00023 
+                      00024         list p=16F877
+  00000003            00025 Status          EQU     03h     ; Address of status register
+  00000085            00026 TrisA           EQU     85h     ; Address of Tristate Buffer A.
+  00000088            00027 TrisD           EQU     88h     ; Address of Tristate Buffer D.
+  00000020            00028 Loop1           EQU     20h     ; Count variable for the first loop
+  00000021            00029 Loop2           EQU     21h     ; Count variable for the second loop
+  00000022            00030 Loop3           EQU     22h     ; Count variable for the third loop
+  00000023            00031 Count           EQU     23h     ; Counter variable for dimmer.
+  00000005            00032 PortA           EQU     05h     ; Address of Port A.
+  00000008            00033 PortD           EQU     08h     ; Address of Port D.
+  0000009F            00034 Adcon1          EQU     9Fh     ; Address of Adcon1.
+                      00035 
+0000                  00036         ORG 0000h
+                      00037 
+0000                  00038 START
+0000   1683           00039         BSF     Status,5        ; Change to Memory Bank 1
+0001   30FF           00040         MOVLW   0FFh            ; Used to make PortA Digital
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   009F           00041         MOVWF   Adcon1          ; Set all bits on PortA to Digital
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0003   0188           00042         CLRF    TrisD           ; Set all bits on PortD to outputs
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   0185           00043         CLRF    TrisA           ; Set all bits on PortA to outputs
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0005   1605           00044         BSF     TrisA,4         ; Set Bit 3 on PortA to input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0006   1685           00045         BSF     TrisA,5         ; Set Bit 4 on PortA to input
+0007   1283           00046         BCF     Status,5        ; Move to Memory Bank 0
+0008   0188           00047         CLRF    PortD           ; Switch off all LED's
+0009   300A           00048         MOVLW   0Ah             ;
+MPASM 03.00 Released             LAB7.ASM   4-24-2003  16:15:07         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000A   00A3           00049         MOVWF   Count           ;       
+                      00050 
+000B                  00051 SWITCH
+000B   1E05           00052         BTFSS   PortA,4         ; Check if switch has been pressed
+000C   2017           00053         CALL    BRIGHT          ; Go and count up by one
+000D   1E85           00054         BTFSS   PortA,5         ; Check if switch has been pressed
+000E   2019           00055         CALL    DIM             ; Go and count down by one 
+000F   0805           00056         MOVF    PortA,0         ; Check to see if both switches have been pressed
+0010   1903           00057         BTFSC   Status,2        ; If both switches have been pressed Go to error state else carry on
+0011   201B           00058         CALL    ERR             ; Go into the error state
+0012   1408           00059         BSF     PortD,0         ;       
+0013   2023           00060         CALL    DELAY           ; Give us half a second delay
+0014   1008           00061         BCF     PortD,0         ;
+0015   2023           00062         CALL    DELAY           ;
+0016   280B           00063         GOTO    SWITCH          ; Go and check switch again
+0017                  00064 BRIGHT
+Message[305]: Using default destination of 1 (file).
+0017   03A3           00065         DECF    Count           ;
+0018   0008           00066         RETURN                  ;
+0019                  00067 DIM
+Message[305]: Using default destination of 1 (file).
+0019   0AA3           00068         INCF    Count           ;
+001A   0008           00069         RETURN                  ;
+001B                  00070 ERR
+001B   0188           00071         CLRF    PortD           ; Switch of all LED's (PortD)
+001C   0988           00072         COMF    PortD,1         ; Switch all LED's on (PortD)   
+001D   2023           00073         CALL    DELAY           ; Give us a half a second delay         
+001E   0188           00074         CLRF    PortD           ; Switch of all LED's
+001F   0805           00075         MOVF    PortA,0         ; Check switch status again
+0020   1D03           00076         BTFSS   Status,2        ; Check if switches are being pressed
+0021   0008           00077         RETURN                  ; 
+0022   281B           00078         GOTO    ERR             ; Loop again until only one switch is being pressed
+                      00079 
+0023                  00080 DELAY
+                      00081         ;RETURN                 ;Used for simulation purposes
+0023   0823           00082         MOVF    Count,0         ;Set delay
+0024   00A1           00083         MOVWF   Loop2           ;Set Loop3 to Loop 3 Times
+0025                  00084 LOOP    
+0025   0BA0           00085         DECFSZ  Loop1,1         ;Loop 255 times then move to next loop
+0026   2825           00086         Goto    LOOP            ;Go Back to the beginning of the Loop
+0027   0BA1           00087         DECFSZ  Loop2,1         ;Loop 255 times then move to next loop
+0028   2825           00088         Goto    LOOP            ;Go Back to the beginning of the Loop   
+                      00089         ;DECFSZ Loop3,1         ;
+                      00090         ;Goto   LOOP            ;
+0029   0008           00091         RETURN                  ;
+                      00092         end                     ;End of Source
+MPASM 03.00 Released             LAB7.ASM   4-24-2003  16:15:07         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Adcon1                            0000009F
+BRIGHT                            00000017
+Count                             00000023
+DELAY                             00000023
+DIM                               00000019
+ERR                               0000001B
+LOOP                              00000025
+Loop1                             00000020
+Loop2                             00000021
+Loop3                             00000022
+PortA                             00000005
+PortD                             00000008
+START                             00000000
+SWITCH                            0000000B
+Status                            00000003
+TrisA                             00000085
+TrisD                             00000088
+__16F877                          00000001
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXX------ ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    42
+Program Memory Words Free:  8150
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     7 reported,     0 suppressed
+
+

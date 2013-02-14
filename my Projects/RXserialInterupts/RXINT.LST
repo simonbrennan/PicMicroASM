@@ -1,0 +1,394 @@
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Program Name : Serial port TX for PIC                  *
+                      00003 ; * Programmer : Simon , Gordon                            *
+                      00004 ; * Description : Serial Recieve using interupts           *
+                      00005 ; **********************************************************
+                      00006 
+                      00007         list p=16F877   
+                      00008         include <p16f877.inc>
+                      00001         LIST
+                      00002 ; P16F877.INC  Standard Header File, Version 1.00    Microchip Technology, Inc.
+                      00373         LIST
+                      00009 
+  00000002            00010 PCL             EQU     02h     ; Address of program counter
+  00000001            00011 F               EQU     1h      ; Send Result to File
+  00000000            00012 W               EQU     0h      ; Send Result to Working Register
+  00000003            00013 Status          EQU     03h     ; Address of status register
+  00000085            00014 TrisA           EQU     85h     ; Address of Tristate Buffer A.
+  00000087            00015 TrisC           EQU     87h     ; Address of Tristate Buffer C.
+  00000088            00016 TrisD           EQU     88h     ; Address of Tristate Buffer D.
+  00000024            00017 Loop1           EQU     24h     ; Count variable for the first loop
+  00000025            00018 Loop2           EQU     25h     ; Count variable for the second loop
+  00000026            00019 Loop3           EQU     26h     ; Count variable for the third loop
+  00000005            00020 PortA           EQU     05h     ; Address of Port A.
+  00000008            00021 PortD           EQU     08h     ; Address of Port D.
+  00000098            00022 TXSTA           EQU     98h     ; Serial Port Transmit Control Register
+  00000099            00023 SPBRG           EQU     99h     ; Serial Port Baud Rate Generator Setting Register
+  00000019            00024 TXREG           EQU     19h     ; Serial Port Transmit register
+  0000001A            00025 RCREG           EQU     1Ah     ; Serial Port Receive
+  00000018            00026 RCSTA           EQU     18h     ; Serial Port Receive register control register
+  0000009F            00027 Adcon1          EQU     9Fh     ; Analogue Digital Register
+  0000000C            00028 PIR1            EQU     0Ch     ; Analogue Digital Register
+  0000008C            00029 PIE1            EQU     8CH     ; Peripheral Interupt Enable
+                      00030 
+                      00031 ; Start of Interupt Vector 
+0000                  00032         ORG 0000h
+0000   2806           00033         GOTO MAIN       
+                      00034         
+0004                  00035         ORG 0004h               ; Start of interupt vector
+0004                  00036 INTER
+0004   081A           00037         MOVF RCREG,W            ; Load RCREG, and send it to portd once interupt completes
+0005   0009           00038         RETFIE
+                      00039 
+                      00040         
+                      00041 
+                      00042 ;Start of main program
+0006                  00043 MAIN
+0006   1683           00044         BSF     Status,5        ; Move to memory bank 1
+0007   30FF           00045         MOVLW   0FFh            ; set tris bits 6,7 for TX and RX, rest of pins
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0008   0087           00046         MOVWF   TrisC           ; to input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0009   0188           00047         CLRF    TrisD           ; Set all bits on portd to outputs
+                      00048 
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00049 ;Initialize Serial Port
+000A   3019           00050         MOVLW   19h             ; Set the baud rate to 9600
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000B   0099           00051         MOVWF   SPBRG           ; //
+000C   3004           00052         MOVLW   b'00000100'     ; Set serial port = on , asynchronous, brgh = 1, 
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000D   0098           00053         MOVWF   TXSTA           ; //
+000E   1283           00054         BCF     Status,5        ; Move to Memory Bank 0
+000F   3080           00055         MOVLW   b'10000000'     ; Set serial port = on 
+0010   0098           00056         MOVWF   RCSTA           ; //
+0011   0188           00057         CLRF    PortD           ;
+                      00058 
+                      00059 ;Initialize Recieve Interupts
+0012   1683           00060         BSF     Status,5        ; Move to memory bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0013   168C           00061         BSF     PIE1,5          ; Enable USART Recieve Interupts        
+0014   1283           00062         BCF     Status,5        ; Move to memory bank 0 
+0015   30C0           00063         MOVLW   B'11000000'     ; Global Interupt Enable, Peripheral Interupt enable
+0016   008B           00064         MOVWF   INTCON          ; //
+0017   3000           00065         MOVLW   00h             ; Set Working Register to 0
+0018   1618           00066         BSF     RCSTA,4         ; Enable Continuous Recieve
+                      00067 
+                      00068 ;Start to recieve values
+0019                  00069 START
+0019   0088           00070         MOVWF   PORTD           ; Write the recieved value to PortD. The Received value is
+001A   2819           00071         GOTO START              ; loaded into the Working Reg when the interupt occurs
+                      00072         end                     ;
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADRESH                            0000001E
+ADRESL                            0000009E
+Adcon1                            0000009F
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+C                                 00000000
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CKE                               00000006
+CKP                               00000004
+CREN                              00000004
+CSRC                              00000007
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+D_A                               00000005
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  4
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+F                                 00000001
+FERR                              00000002
+FSR                               00000004
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTER                             00000004
+INTF                              00000001
+IRP                               00000007
+Loop1                             00000024
+Loop2                             00000025
+Loop3                             00000026
+MAIN                              00000006
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  5
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+PortA                             00000005
+PortD                             00000008
+R                                 00000002
+RBIE                              00000003
+RBIF                              00000000
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+READ_WRITE                        00000002
+RP0                               00000005
+RP1                               00000006
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_W                               00000002
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  6
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+START                             00000019
+STATUS                            00000003
+SYNC                              00000004
+Status                            00000003
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TMR0                              00000001
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRISA                             00000085
+TRISB                             00000086
+TRISC                             00000087
+TRISD                             00000088
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TX8_9                             00000006
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  7
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+TrisA                             00000085
+TrisC                             00000087
+TrisD                             00000088
+UA                                00000001
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00000FCF
+_CP_HALF                          00001FDF
+_CP_OFF                           00003FFF
+_CP_UPPER_256                     00002FEF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_HS_OSC                           00003FFE
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_ENABLE_OFF                   00003DFF
+_WRT_ENABLE_ON                    00003FFF
+_XT_OSC                           00003FFD
+__16F877                          00000001
+MPASM 03.10 Released            RXINT.ASM   11-9-2003  19:20:11         PAGE  8
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+
+0000 : X---XXXXXXXXXXXX XXXXXXXXXXX----- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    24
+Program Memory Words Free:  8168
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     5 reported,     0 suppressed
+
+

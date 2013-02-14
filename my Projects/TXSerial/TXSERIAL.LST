@@ -1,0 +1,124 @@
+MPASM 03.10 Released         TXSERIAL.ASM   11-8-2003  19:56:43         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Program Name : Serial port TX for PIC                  *
+                      00003 ; * Programmer : Simon Brennan                             *
+                      00004 ; * Registers :                                            *
+                      00005 ; *          Address 03h -> Status                         *
+                      00006 ; *          Address 02h -> PCL                            *
+                      00007 ; *          Address 1h  -> F                              *            
+                      00008 ; *          Address 9fh -> Adcon1                         *    
+                      00009 ; *          Address 85h -> TrisA                          *
+                      00010 ; *          Address 88h -> TrisD                          *
+                      00011 ; *          Address 20h -> Loop1                          *    
+                      00012 ; *          Address 21h -> Loop2                          *
+                      00013 ; *          Address 22h -> Loop3                          *            
+                      00014 ; *          Address 23h -> Counter                        *            
+                      00015 ; *          Address 05h -> PortA                          *
+                      00016 ; *          Address 05h -> PortD                          *    
+                      00017 ; *          Address 98h -> TXSTA                          *            
+                      00018 ; *          Address 99h -> SPBRG                          *
+                      00019 ; *          Address 19h -> TXREG                          *
+                      00020 ; *          Address 18h -> RCSTA                          *
+                      00021 ; *                                                        *
+                      00022 ; * Version: 0.1 - Test Version                            *
+                      00023 ; **********************************************************
+                      00024 
+                      00025         list p=16F877
+  00000002            00026 PCL             EQU     02h     ; Address of program counter
+  00000001            00027 F               EQU     1h      ; Send Result to File
+  00000000            00028 W               EQU     0h      ; Send Result to Working Register
+  00000003            00029 Status          EQU     03h     ; Address of status register
+  00000085            00030 TrisA           EQU     85h     ; Address of Tristate Buffer A.
+  00000087            00031 TrisC           EQU     87h     ; Address of Tristate Buffer C.
+  00000088            00032 TrisD           EQU     88h     ; Address of Tristate Buffer D.
+  00000005            00033 PortA           EQU     05h     ; Address of Port A.
+  00000008            00034 PortD           EQU     08h     ; Address of Port D.
+  00000098            00035 TXSTA           EQU     98h     ; Serial Port Transmit Control Register
+  00000099            00036 SPBRG           EQU     99h     ; Serial Port Baud Rate Generator Setting Register
+  00000019            00037 TXREG           EQU     19h     ; Serial Port Transmit register
+  00000018            00038 RCSTA           EQU     18h     ; Serial Port Receive register
+  0000009F            00039 Adcon1          EQU     9Fh     ;Analogue Digital Register
+  00000020            00040 Count           EQU     20h     ;     
+                      00041 
+0000                  00042         ORG 0000h               
+0000                  00043 INIT
+0000   1683           00044         BSF     Status,5        ; Move to memory bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0001   1707           00045         BSF     TrisC,6         ; Set TrisC bit 7 to output (For Serial TX)
+                      00046 ;Serial Port Init               ; 
+0002   3019           00047         MOVLW   19h             ; Set the baud rate to 9600 and brgh=1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0003   0099           00048         MOVWF   SPBRG           ; //
+0004   3024           00049         MOVLW   b'00100100'     ; Set serial port = on , asynchronous, brgh = 1, Transmit enable
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0005   0098           00050         MOVWF   TXSTA           ; //
+MPASM 03.10 Released         TXSERIAL.ASM   11-8-2003  19:56:43         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0006   1283           00051         BCF     Status,5        ; Move to Memory Bank 0
+0007   3080           00052         MOVLW   b'10000000'     ; Enable Serial Port
+0008   0098           00053         MOVWF   RCSTA           ; //    
+0009   01A0           00054         CLRF    Count           ;
+Message[305]: Using default destination of 1 (file).
+000A   0AA0           00055         INCF    Count           ;
+000B                  00056 START
+000B   0820           00057         MOVF    Count,W         ;
+000C   0099           00058         MOVWF   TXREG           ; Send data to serial port
+Message[305]: Using default destination of 1 (file).
+000D   0AA0           00059         INCF    Count
+000E   1683           00060         BSF     Status,5        ; Go to ram bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+000F   1C98           00061         btfss   TXSTA,1         ; Check if transmitter is busy
+0010   280F           00062         goto    $-1             ; Wait till transmitter is finished before sending again
+0011   1283           00063         BCF     Status,5        ; Go to ram bank 0
+0012   280B           00064         GOTO    START           ; Go and check the switches again
+                      00065         end                     ; end of source
+MPASM 03.10 Released         TXSERIAL.ASM   11-8-2003  19:56:43         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Adcon1                            0000009F
+Count                             00000020
+F                                 00000001
+INIT                              00000000
+PCL                               00000002
+PortA                             00000005
+PortD                             00000008
+RCSTA                             00000018
+SPBRG                             00000099
+START                             0000000B
+Status                            00000003
+TXREG                             00000019
+TXSTA                             00000098
+TrisA                             00000085
+TrisC                             00000087
+TrisD                             00000088
+W                                 00000000
+__16F877                          00000001
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXX------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    19
+Program Memory Words Free:  8173
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     6 reported,     0 suppressed
+
+

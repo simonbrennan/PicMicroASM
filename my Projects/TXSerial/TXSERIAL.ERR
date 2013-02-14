@@ -1,0 +1,6 @@
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\TXSERIAL\TXSERIAL.ASM 45 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\TXSERIAL\TXSERIAL.ASM 48 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\TXSERIAL\TXSERIAL.ASM 50 : Register in operand not in bank 0.  Ensure that bank bits are correct.
+Message[305] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\TXSERIAL\TXSERIAL.ASM 55 : Using default destination of 1 (file).
+Message[305] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\TXSERIAL\TXSERIAL.ASM 59 : Using default destination of 1 (file).
+Message[302] C:\SIMONS\PROGRA~1\PICPRO~1\MYPROJ~1\TXSERIAL\TXSERIAL.ASM 61 : Register in operand not in bank 0.  Ensure that bank bits are correct.

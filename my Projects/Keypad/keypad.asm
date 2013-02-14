@@ -1,0 +1,138 @@
+; **********************************************************
+; * Name : Simon Brennan				   *
+; * Date : 19/06/2003					   *
+; * Assignment No : keypad.asm				   *
+; * Description : This program is a simple prototype system*
+; *		  for a keypad that has five switches.     *
+; *		  The PIC will recieve a code, and check it*
+; *		  against the code in EEPROM		   *
+; * 							   *
+; * Inputs : Address 03h -> Status   		    	   *
+; *	     Address 02h -> PCL				   *
+; *	     Address 1h	 -> F				   *		
+; *	     Address 9fh -> Adcon1			   *	
+; * 	     Address 88h -> TrisD		           *
+; *	     Address 85h -> TrisA			   *
+; *          Address 20h -> Loop1			   *	
+; *          Address 21h -> Loop2			   *
+; *          Address 22h -> Loop3			   *		
+; *          Address 23h -> Counter			   *		
+; * 	     Address 05h -> PortA			   *
+; * Outputs: Address 03h -> PortD			   *
+; *							   *
+; * Version: 1.0 - Works perfectly                         *
+; **********************************************************
+
+	list p=16F877
+PCL		EQU	02h	; Address of program counter
+F		EQU	1h	; 
+Status 		EQU	03h 	; Address of status register
+TrisA   	EQU	85h	; Address of Tristate Buffer A.
+TrisD  		EQU     88h 	; Address of Tristate Buffer D.
+Loop1  		EQU	20h 	; Count variable for the first loop
+Loop2  		EQU	21h 	; Count variable for the second loop
+Loop3  		EQU	22h 	; Count variable for the first loop
+Onepress	EQU	24h	;
+Twopress	EQU	25h	;
+Threepress	EQU	26h	;
+Fourpress	EQU	27h	;
+Fivepress	EQU	28h	;
+Counter		EQU	23h	; Stores the status of counter
+PortA   	EQU	05h	; Address of Port A.
+PortD   	EQU 	08h 	; Address of Port D.
+Adcon1		EQU	9Fh	; Address of Adcon1.
+W		EQU	00h	; Working Register Flag
+F               EQU 	01h     ; File register flag
+C               EQU 	00h     ; Carry flag
+Z               EQU 	02h     ; Zero flag
+DC              EQU 	01h     ; Digit Carry flag
+
+	ORG 0000h
+
+START
+	BSF 	Status,5	; Change to Memory Bank 1
+	MOVLW 	0FFh		; Used to make PortA Digital
+	MOVWF 	Adcon1  	; Set all bits on PortA to Digital
+	CLRF 	TrisD		; Set all bits on PortD to outputs
+	CLRF	TrisA		; Set all bits on PortA to outputs
+	MOVLW	b'00011111'	; Set RA0->RA5 as inputs
+	MOVWF	TrisA		; //
+	BCF 	Status,5	; Move to Memory Bank 0
+	CLRF 	PortD		; Switch off all LED's
+	CLRF	Counter		;
+SWITCH
+	BTFSS 	PortA,0		; Check if up switch has been pressed
+	CALL 	ONE		; Switch one was pressed
+	BTFSS 	PortA,1		; Check if up switch has been pressed
+	CALL 	TWO		; Switch one was pressed
+	BTFSS 	PortA,2		; Check if up switch has been pressed
+	CALL 	THREE		; Switch one was pressed
+	BTFSS 	PortA,3		; Check if up switch has been pressed
+	CALL 	FOUR		; Switch one was pressed
+	BTFSS 	PortA,4		; Check if down switch has been pressed
+	CALL	RESCODE		; Go and change the keypad code 
+	MOVF	PortA,0		; Check to see if both switches have been pressed
+	ANDLW	b'00110000'	; Make sure all other bits are 0
+	BTFSC 	Status,2	; If both switches have been pressed Go to error state else carry on
+	CALL	ERR		; Go into the error state
+	MOVF	Counter,W	;
+	SUBLW	b'00000100'	;
+	BTFSC 	Status,2	; 
+	CALL	CHECK		; 
+	CALL	DELAY		; Delay of 0.1s
+	GOTO 	SWITCH     	; Go and check the switches again
+CHECK
+	BTFSS 	PortA,0		; Check if up switch has been pressed
+	CALL 	ONE		; Switch one was pressed
+	BTFSS 	PortA,1		; Check if up switch has been pressed
+	CALL 	TWO		; Switch one was pressed
+	BTFSS 	PortA,2		; Check if up switch has been pressed
+	CALL 	THREE		; Switch one was pressed
+	BTFSS 	PortA,3		; Check if up switch has been pressed
+	CALL 	FOUR		; Switch one was pressed
+	
+
+ONE
+	BSF	Onepress,1	;
+	INCF	Counter		; 
+	RETURN			;
+TWO
+	BSF	Twopress,1	;
+	INCF	Counter		; 
+	RETURN
+THREE
+	BSF	Threepress,1	;
+	INCF	Counter		; 
+	RETURN
+FOUR
+	BSF	Fourpress,1	;
+	INCF	Counter		; 
+	RETURN
+RESCODE
+	RETURN
+
+
+ERR
+	CLRF	PortD		; Clear seven segment Display
+	CALL	DELAY		; half second delay
+	MOVLW	B'11111001'	; Seven segment code to put an e on display	
+	MOVWF	PortD		; Show an "e" on display, for error
+	CALL	DELAY		; half second delay
+	MOVF	PortA,0		; Check to see if both switches have been pressed
+	ANDLW	b'00110000'	; Make All the other bits O
+	BTFSS 	Status,2	; If both switches have been pressed Go to error state else carry on
+	RETURN			; 
+	GOTO	ERR		; Loop again until only one switch is being pressed
+DELAY
+	;RETURN			;Used for simulation purposes
+	MOVLW 	01h		;Set delay for 0.1 Second
+	MOVWF 	Loop3	 	;Set Loop3 to Loop 3 Times
+LOOP	
+	DECFSZ 	Loop1,1  	;Loop 255 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop
+	DECFSZ 	Loop2,1  	;Loop 255 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop	
+	DECFSZ 	Loop3,1  	;Loop 5 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop
+	RETURN			;Go back and execute instruction after last call
+	end			;End of Source

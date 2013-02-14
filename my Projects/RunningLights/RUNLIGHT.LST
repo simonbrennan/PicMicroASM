@@ -1,0 +1,173 @@
+MPASM 03.00 Released         RUNLIGHT.ASM   10-20-2003  18:54:16         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Programmer : Simon Brennan                             *
+                      00003 ; * Date : 19/10/2003                                      *
+                      00004 ; * Description : This program is a simple running light   *
+                      00005 ; *               circuit (Night Rider)                    *
+                      00006 ; *                                                        *
+                      00007 ; * Inputs : Address 03h -> Status                         *
+                      00008 ; *          Address 88h -> TrisD                          *
+                      00009 ; *          Address 85h -> TrisA                          *
+                      00010 ; *          Address 20h -> Loop1                          *    
+                      00011 ; *          Address 21h -> Loop2                          *
+                      00012 ; *          Address 22h -> Loop3                          *            
+                      00013 ; *          Address 05h -> PortA                          *
+                      00014 ; *          Address 9Fh -> Adcon1                         *
+                      00015 ; * Outputs: Address 03h -> PortD                          *
+                      00016 ; *                                                        *
+                      00017 ; * Version: 0.1 - Make Lights run in one direction        *
+                      00018 ; **********************************************************
+                      00019 
+                      00020         list p=16F877
+  00000005            00021 rp0             EQU     05h     ; Bit 5 of Status Register (Ram bank select)
+  00000001            00022 f               EQU     01h     ; Result of operation into File
+  00000000            00023 w               EQU     00h     ; Result of operation into Working Register
+  00000002            00024 zflag           EQU     02h     ; Zflag of status register
+  00000002            00025 pcl             EQU     02h     ; Address of program counter latch
+  00000003            00026 status          EQU     03h     ; Address of status register
+  00000005            00027 porta           EQU     05h     ; Address of Port A.
+  00000008            00028 portd           EQU     08h     ; Address of Port D.
+  00000020            00029 loop1           EQU     20h     ; Count variable for the first loop
+  00000021            00030 loop2           EQU     21h     ; Count variable for the second loop
+  00000022            00031 loop3           EQU     22h     ; Count variable for the third loop
+  00000023            00032 counter         EQU     23h     ; Counter variable for running lights.
+  00000085            00033 trisa           EQU     85h     ; Address of Tristate Buffer A.
+  00000088            00034 trisd           EQU     88h     ; Address of Tristate Buffer D.
+  0000009F            00035 adcon1          EQU     9Fh     ; Address of Adcon1.
+                      00036 
+0000                  00037         ORG 0000h
+0000                  00038 INIT
+0000   1683           00039         bsf     status,rp0      ; Switch to Rambank 1
+0001   30FF           00040         movlw   0FFh            ; Set all bits on PortA to digital using Adcon1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   009F           00041         movwf   adcon1          ; //
+0003   30FF           00042         movlw   0ffh            ; Set all bits on PortA to input
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0004   0085           00043         movwf   trisa           ; //
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0005   0188           00044         clrf    trisd           ; Set all bits on PortD to output (For Led's)
+0006   1283           00045         bcf     status,rp0      ; Switch to Rambank 0
+0007   0188           00046         clrf    portd           ; Switch off all Led's on portd
+0008   01A3           00047         clrf    counter         ; Switch                
+0009                  00048 START
+0009   0188           00049         clrf    portd           ;
+000A   1A85           00050         btfsc   porta,5         ; check if the switch has been pressed
+MPASM 03.00 Released         RUNLIGHT.ASM   10-20-2003  18:54:16         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000B   2809           00051         goto    START           ; do nothing if the switch is not pressed
+000C   0823           00052         movf    counter,w       ; Check if the counter is at zero
+000D   1903           00053         btfsc   status,zflag    ; //
+000E   2013           00054         call    GOUP            ; If it is at zero then go and count up (Move LED's to right)
+000F   3C03           00055         sublw   03h             ; Check if counter is a 7 (Must start going other way)
+0010   1903           00056         btfsc   status,zflag    ; //
+0011   201D           00057         call    GODOWN          ; If it is at seven then go and count down (Move LED's to left)
+0012   2809           00058         goto    START           ; loop this code forever
+0013                  00059 GOUP
+0013   2030           00060         call    DELAY           ; Give us a delay
+0014   0823           00061         movf    counter,w       ; use lookup table to get led value
+0015   2026           00062         call    LIGHTCODE       ; //
+0016   0088           00063         movwf   portd           ; Put returned value into portd
+Message[305]: Using default destination of 1 (file).
+0017   0AA3           00064         incf    counter         ; increment the counter
+0018   0823           00065         movf    counter,w       ; check if counter is at 7
+0019   3C03           00066         sublw   03h             ; //
+001A   1903           00067         btfsc   status,zflag    ;
+001B   0008           00068         return                  ;
+001C   2813           00069         goto    GOUP            ;
+001D                  00070 GODOWN
+001D   2030           00071         call    DELAY           ; Give us a delay
+001E   0823           00072         movf    counter,w       ; use lookup table to get led value
+001F   2026           00073         call    LIGHTCODE       ; //
+0020   0088           00074         movwf   portd           ; Put returned value into portd
+Message[305]: Using default destination of 1 (file).
+0021   03A3           00075         decf    counter         ; decrement the counter
+0022   0823           00076         movf    counter,w       ; check if counter is at 0
+0023   1903           00077         btfsc   status,zflag    ;
+0024   0008           00078         return                  ;
+0025   281D           00079         goto    GODOWN          ;
+                      00080 
+0026                  00081 LIGHTCODE
+0026   0823           00082         movf    counter,w       ; //
+0027   0782           00083         addwf   pcl,f           ; Set the value on seven segment display to counter
+0028   3481           00084         retlw   b'10000001'     ;Decode 
+0029   3442           00085         retlw   b'01000010'     ;Decode 
+002A   3424           00086         retlw   b'00100100'     ;Decode 
+002B   3418           00087         retlw   b'00011000'     ;Decode 
+002C   3418           00088         retlw   b'00011000'     ;Decode 
+002D   3424           00089         retlw   b'00100100'     ;Decode 
+002E   3442           00090         retlw   b'01000010'     ;Decode 
+002F   3481           00091         retlw   b'10000001'     ;Decode 
+0030                  00092 DELAY
+                      00093         ;return                 ;Used for simulation purposes
+0030   3001           00094         movlw   01h             ;Set delay for 0.1 Second (100ms)
+0031   00A2           00095         movwf   loop3           ;Set Loop3 to Loop 3 Times
+0032                  00096 LOOP    
+0032   0BA0           00097         decfsz  loop1,1         ;Loop 255 times then move to next loop
+0033   2832           00098         goto    LOOP            ;Go Back to the beginning of the Loop
+0034   0BA1           00099         decfsz  loop2,1         ;Loop 255 times then move to next loop
+0035   2832           00100         goto    LOOP            ;Go Back to the beginning of the Loop   
+0036   0BA2           00101         decfsz  loop3,1         ;Loop 5 times then move to next loop
+MPASM 03.00 Released         RUNLIGHT.ASM   10-20-2003  18:54:16         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0037   2832           00102         goto    LOOP            ;Go Back to the beginning of the Loop
+0038   0008           00103         return                  ;Go back and execute instruction after last call
+                      00104         end                     ;End of Source
+MPASM 03.00 Released         RUNLIGHT.ASM   10-20-2003  18:54:16         PAGE  4
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+DELAY                             00000030
+GODOWN                            0000001D
+GOUP                              00000013
+INIT                              00000000
+LIGHTCODE                         00000026
+LOOP                              00000032
+START                             00000009
+__16F877                          00000001
+adcon1                            0000009F
+counter                           00000023
+f                                 00000001
+loop1                             00000020
+loop2                             00000021
+loop3                             00000022
+pcl                               00000002
+porta                             00000005
+portd                             00000008
+rp0                               00000005
+status                            00000003
+trisa                             00000085
+trisd                             00000088
+w                                 00000000
+zflag                             00000002
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXX-------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    57
+Program Memory Words Free:  8135
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     5 reported,     0 suppressed
+
+

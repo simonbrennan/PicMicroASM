@@ -1,0 +1,185 @@
+; **********************************************************
+; * Name : Simon, Gordon 				   *
+; * Date : 30/08/2003					   *
+; * Description :  Program Reads an analogue value from    * 
+; *		   an LDR and converts it to a digital     *
+; *                value and is sent to a remote reciever  *
+; *		   (PC or PIC)				   *
+; **********************************************************
+	
+	list p=16F877
+	include <p16f877.inc>
+PCL		EQU	02h	; Address of program counter
+F		EQU	1h	; Result of operation into File
+W		EQU	0h	; Result of operation into Working Register
+Status 		EQU	03h 	; Address of status register
+RP0		EQU	05h	; Bit 5 of Status Register
+TrisA   	EQU	85h	; Address of Tristate Buffer A.
+TrisC           EQU     87h	; Address of Tristate Buffer C.
+PortA   	EQU	05h	; Address of Port A.
+Counter		EQU	23h	; Stores the status of counter
+Adh		EQU	1Eh	; High Result of A/D Conversion
+Adl		EQU	9Eh	; Low Result of A/D Conversion
+Adcon1		EQU	9Fh	; Address of Adcon1.
+Adcon0		EQU	1Fh	; Analogue Digital Register
+GO		EQU	02h	; GO/Done bit for Adconverter
+TRMT		EQU	01h	; Transmit Status Register
+Loop1  		EQU	20h 	; Count variable for the first loop
+Loop2  		EQU	21h 	; Count variable for the second loop
+Loop3  		EQU	22h 	; Count variable for the first loop
+temp		EQU	27h	; Temporary Variable
+Tempreg		EQU	28h	; Temp Recieve Register Storage
+H_byte  	equ     29H	; Upper Byte for BCD to Decimal Conversion
+L_byte  	equ     30H	; Lower Byte for BCD to Decimal Conversion 
+R0      	equ     31H	; Result 0 of BCD to Decimal Conversion
+R1      	equ     32H	; Result 1 of BCD to Decimal Conversion
+R2      	equ     33H	; Result 2 of BCD to Decimal Conversion
+Count		equ     34H	; Counter Variable
+
+;Serial Port Registers
+TXSTA		EQU	98h	; Serial Port Transmit Control Register
+SPBRG		EQU	99h	; Serial Port Baud Rate Generator Setting Register
+TXREG		EQU	19h	; Serial Port Transmit register
+RCSTA		EQU	18h	; Serial Port Receive register
+
+INIT
+	BSF	Status,RP0	; Switch to Rambank 1
+	CLRF	Adcon1		; Set all bits on PortA to analogue	
+	BSF	Adcon1,7	; Set ADFM to righthand justification
+	CLRF    TrisA		; Set all bits on trisA to outputs
+	BSF     TrisA,0		; Set RA0 as input
+	BSF     TrisC,6		; Set TrisC bit 6 to output
+;Serial Port Init
+	MOVLW	19Fh		; Set the baud rate to 9600 and brgh=1
+	MOVWF   SPBRG		; //
+	MOVLW	b'00100100'	; Asynchronous, brgh = 1, Transmit enable
+	MOVWF	TXSTA		; //
+	BCF 	Status,5	; Move to Memory Bank 0
+	MOVLW   b'10000000'     ; Enable Serial Port
+	MOVWF	RCSTA		; //	
+;ADcon Init	
+	MOVLW	B'10000001'	; Set ADC to Channel 1 (RA1), Switch on ADC, Set Sampling Rate to Fosc/32
+	MOVWF	Adcon0		; //
+START
+	BSF	Adcon0,GO	; Start A/D Conversion
+	;CALL    DELAY		; Short Delay for aquire voltage
+	BSF     STATUS,5	; Move to bank 1  
+	MOVF	Adl,W		; Get Low byte A/D result
+	BCF     STATUS,5	; Move to bank 0
+	MOVWF   temp		; Save A/D Result in Temporary space
+	BTFSC	temp,7		; This part of the code is used to shift the A/D result.
+	BSF	H_byte,7	; We loose the 1 and 2 bits of A/D due to justification.
+	BTFSC	temp,6		; We must therefore shift the A/D result values two bits to the left
+	BSF	H_byte,6	; so that the BCD to Decimal conversion is accurate
+	RLF	temp		; //
+	RLF	temp		; //
+	MOVF	temp,W		; //
+	MOVWF   L_byte		; Put A/D value into memory for conversion procedure
+	CALL    CONVERT		; Go and do the conversion
+	CALL    LIGHTRATIO	; Take the result of BCD to DEC conversion and change it to a light meter value
+	MOVWF	Tempreg		; Save Lightratio to temp location
+	CALL    SENDDATA	; Send the value to serial port
+	GOTO	START		; Loop back to start
+
+CONVERT:  
+; Source code for this conversion courtesy of Microchip
+;********************************************************************
+;                  Binary To BCD Conversion Routine
+;      This routine converts a 16 Bit binary Number to a 5 Digit
+; BCD Number. This routine is useful since PIC16C55 & PIC16C57
+; have  two 8 bit ports and one 4 bit port ( total of 5 BCD digits)
+;
+;       The 16 bit binary number is input in locations H_byte and
+; L_byte with the high byte in H_byte.
+;       The 5 digit BCD number is returned in R0, R1 and R2 with R0
+; containing the MSD in its right most nibble.
+;
+;   Performance :
+;               Program Memory  :       35
+;               Clock Cycles    :       885
+;
+;
+;       Revision Date:   
+;                         1-13-97      Compatibility with MPASMWIN 1.40
+;
+;*******************************************************************;
+
+
+	bcf     STATUS,0                ; clear the carry bit
+	movlw   D'16'
+	movwf   Count
+	clrf    R0
+	clrf    R1
+	clrf    R2
+loop16  rlf     L_byte, F
+	rlf     H_byte, F
+	rlf     R2, F
+	rlf     R1, F
+	rlf     R0, F
+;
+	decfsz  Count, F
+	goto    adjDEC
+	RETLW   0
+;
+adjDEC  movlw   R2
+	movwf   FSR
+	call    adjBCD
+;
+	movlw   R1
+	movwf   FSR
+	call    adjBCD
+;
+	movlw   R0
+	movwf   FSR
+	call    adjBCD
+;
+	goto    loop16
+;
+adjBCD  movlw   3
+	addwf   0,W
+	movwf   temp
+	btfsc   temp,3          ; test if result > 7
+	movwf   0
+	movlw   30
+	addwf   0,W
+	movwf   temp
+	btfsc   temp,7          ; test if result > 7
+	movwf   0               ; save as MSD
+	RETLW   0
+;**************************************************************************************
+
+
+SENDDATA
+	MOVF    Tempreg,W	; Load up the value to send
+	MOVWF	TXREG		; Transmit A/D value
+	RETURN			; 
+
+LIGHTRATIO
+	MOVF	R1,W		;Use decimal result to get lightmeter setting 	
+	ANDLW   b'00001111'	;Remove the highest nibble 
+	ADDWF	PCL,F		;Return the value for meter display 
+	RETLW	B'00000000'	;Decode 0
+	RETLW	B'10000000'	;Decode 1
+	RETLW	B'11000000'	;Decode 2
+	RETLW	B'11100000'	;Decode 3
+	RETLW	B'11110000'	;Decode 4
+	RETLW	B'11111000'	;Decode 5
+	RETLW	B'11111100'	;Decode 6
+	RETLW	B'11111110'	;Decode 7
+	RETLW	B'11111111'	;Decode 8
+	RETLW	B'11111111'	;Decode 9
+DELAY
+	;RETURN			;Used for simulation purposes
+	MOVLW 	05h		;Set delay for 0.5 Second
+	MOVWF 	Loop3	 	;Set Loop3 to Loop 3 Times
+LOOP	
+	DECFSZ 	Loop1,1  	;Loop 255 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop
+	DECFSZ 	Loop2,1  	;Loop 255 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop	
+	DECFSZ 	Loop3,1  	;Loop 5 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop
+	RETURN			;Go back and execute instruction after last call
+	end			;End of Source
+
+

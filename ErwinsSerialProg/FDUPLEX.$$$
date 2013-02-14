@@ -1,0 +1,622 @@
+
+	list p=16F877
+	include <p16f877.inc>
+	__CONFIG _BODEN_OFF&_CP_OFF&_WRT_ENABLE_ON&_PWRTE_ON&_WDT_OFF&_XT_OSC&_DEBUG_OFF&_CPD_OFF&_LVP_OFF
+
+Loop1  	EQU	20h 	; 
+Loop2  	EQU	21h 	; 
+Loop3  	EQU	22h 	; 
+TEMPH	EQU	23H	;
+TEMPL	EQU	24H	;
+temp   	equ     25H	;
+H_byte  equ     26H	;
+L_byte  equ     27H	;
+R0      equ     2AH	;
+R1      equ     28H	;
+R2      equ     29H	;
+Byte	EQU	2AH	;
+Count	EQU	2BH	;
+Count1	EQU	2CH	;
+Count2	EQU	2DH	;
+TEMW	EQU	2EH	;
+TEMSTAT	EQU	2FH	;
+T_TH_BYTE  equ     30H	;
+T_H_BYTE  equ     31H	;
+T_T_BYTE  equ     32H	;
+T_U_BYTE  equ     33H	;
+R_TH_BYTE  equ     34H	;
+R_H_BYTE  equ     35H	;
+R_T_BYTE  equ     36H	;
+R_U_BYTE  equ     37H	;
+T_COUNT	equ	38h	;
+R_COUNT	equ	39h	;
+R_TEMP	equ 	3Ah	;
+
+
+;Defines for I/O ports that provide LCD data & control
+LCD_DATA	equ	PORTB
+LCD_CNTL	equ	PORTB
+
+; Defines for I/O pins that provide LCD control
+RS		equ	5
+E		equ	4
+
+; LCD Module commands
+DISP_ON		EQU	0x00C	; Display on
+DISP_ON_C	EQU	0x00E	; Display on, Cursor on
+DISP_ON_B	EQU	0x00F	; Display on, Cursor on, Blink cursor
+DISP_OFF	EQU	0x008	; Display off
+CLR_DISP	EQU	0x001	; Clear the Display
+ENTRY_INC	EQU	0x006	;
+ENTRY_INC_S	EQU	0x007	;
+ENTRY_DEC	EQU	0x004	;
+ENTRY_DEC_S	EQU	0x005	;
+DD_RAM_ADDR	EQU	0x080	; Least Significant 7-bit are for address
+DD_RAM_UL	EQU	0x080	; Upper Left coner of the Display
+
+
+	ORG 	0000H		; resets vector address
+	GOTO	INIT
+	
+	ORG	0004H		;
+
+INTER	MOVWF 	TEMW   		;Copy W to TEMP register
+	SWAPF 	STATUS,0 	;Swap status to be saved into W
+	CLRF 	STATUS 		;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+	MOVWF 	TEMSTAT     	;Save status to bank zero STATUS_TEMP register
+
+	BTFSC	PIR1,4		;
+	CALL	TRANSMIT	;
+
+	BTFSC	PIR1,5		;
+	CALL	RECEIVE		;
+
+	BTFSS	PIR1,6		;
+	GOTO	$+3		;
+	BSF	ADCON0,2	;
+	BCF	PIR1,6		;
+
+
+	CLRF 	STATUS 		;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+
+	SWAPF 	TEMSTAT,0 	;Swap STATUS_TEMP register into W
+				;(sets bank to original state)
+	MOVWF 	STATUS 		;Move W into STATUS register
+	SWAPF 	TEMW,1 		;Swap W_TEMP
+	SWAPF 	TEMW,0 		;Swap W_TEMP into W
+	RETFIE			;return from interrupt(restores pc to original state)
+
+TRANSMIT
+	BTFSC	T_COUNT,0	;
+	CALL	TR_ST		;
+	BTFSC	T_COUNT,1	;
+	CALL	TR_TH		;
+	BTFSC	T_COUNT,2	;
+	CALL	TR_HU		;
+	BTFSC	T_COUNT,3	;
+	CALL	TR_TE		;
+	BTFSC	T_COUNT,4	;
+	CALL	TR_UN		;
+	RLF	T_COUNT,1	;
+	BTFSS	T_COUNT,5	;
+	GOTO	$+2		;
+	CLRF	T_COUNT		;
+	MOVF	T_COUNT,0	;
+	BTFSC	STATUS,2	;
+	BSF	T_COUNT,0	;
+			
+	RETURN	
+
+
+TR_ST
+	MOVLW	'S'		;
+	MOVWF	TXREG		;
+	RETURN			;
+
+TR_TH
+	MOVF	T_TH_BYTE,0	;
+	MOVWF	TXREG		;
+	RETURN			;
+TR_HU
+	MOVF	T_H_BYTE,0	;
+	MOVWF	TXREG		;
+	RETURN			;
+TR_TE
+	MOVF	T_T_BYTE,0	;
+	MOVWF	TXREG		;
+	RETURN			;
+TR_UN
+	MOVF	T_U_BYTE,0	;
+	MOVWF	TXREG		;
+	RETURN			;
+
+RECEIVE
+	MOVF	RCREG,0		;
+	MOVWF	R_TEMP		;
+	MOVLW	'S'		;
+	SUBWF	R_TEMP,0	;
+
+	BTFSS	STATUS,2	;
+	GOTO	$+3		;
+	CLRF	R_COUNT		;
+	BSF	R_COUNT,0	;
+	
+	BTFSC	R_COUNT,1	;
+	CALL	R_TH		;
+	BTFSC	R_COUNT,2	;
+	CALL	R_HU		;
+	BTFSC	R_COUNT,3	;
+	CALL	R_TE		;
+	BTFSC	R_COUNT,4	;
+	CALL	R_UN		;
+	MOVLW	D'1'		;
+	ADDLW	D'1'		;
+	RLF	R_COUNT,1	;
+	BTFSS	R_COUNT,5	;
+	GOTO	$+3		;
+	CLRF	R_COUNT		;
+	BSF	R_COUNT,0	;
+			
+	RETURN	
+
+
+R_TH
+	MOVF	R_TEMP,0	;
+	MOVWF	R_TH_BYTE	;
+	RETURN			;
+
+R_HU
+	MOVF	R_TEMP,0	;
+	MOVWF	R_H_BYTE	;
+	RETURN			;
+R_TE
+	MOVF	R_TEMP,0	;
+	MOVWF	R_T_BYTE	;
+	RETURN			;
+R_UN
+	MOVF	R_TEMP,0	;
+	MOVWF	R_U_BYTE	;
+	RETURN			;
+	
+
+
+	
+
+
+
+INIT
+	BSF	STATUS,RP0	; Switch to Rambank 1
+
+	MOVLW 	B'10000100'	; Adcon result right justified, pin RA4 Digital, pin RA0 Analogue,
+	MOVWF 	ADCON1 		; Vref+ = Vdd, Vref- = Vss.
+
+	BSF 	TRISC,6		; Enable transmit pin
+	BSF 	TRISC,7		; Enable Receive pin
+
+	BSF STATUS,RP0 		; Go to Bank1
+	MOVLW 19h 		; Set Baud rate 9600
+	MOVWF SPBRG
+	MOVLW b'00100000'	; 9-bit transmit, transmitter enabled,b'00100100'
+	MOVWF TXSTA 		; asynchronous mode, high speed mode
+	BSF PIE1,TXIE 		; Enable transmit interrupts
+	BSF PIE1,RCIE 		; Enable receive interrupts
+	BCF STATUS,RP0 		; Go to Bank 0
+	MOVLW b'10010000'	; 9-bit receive, receiver enabled,b'10100000'
+	MOVWF RCSTA 		; serial port enabled
+
+
+	MOVLW 	B'01000001'	; Fosc/32, RA0 input, enable A/D module
+	MOVWF 	ADCON0 		;
+
+	BSF	PIE1,6		;	
+
+	MOVLW 	B'11000000'	; 
+	MOVWF 	INTCON 		;
+
+	CLRF	T_COUNT		;
+	CLRF	R_COUNT		;
+	CLRF	T_TH_BYTE	;
+	CLRF	T_H_BYTE	;
+	CLRF	T_T_BYTE	;
+	CLRF	T_U_BYTE	;
+	CLRF	R_TH_BYTE	;
+	CLRF	R_H_BYTE	;
+	CLRF	R_T_BYTE	;
+	CLRF	R_U_BYTE	;
+	
+
+	call	InitLCD		; Initialize LCD display
+	BSF	ADCON0,2	;
+
+
+ADREAD
+
+		
+
+	CALL	DELAY		;
+
+
+FDEL	BSF 	STATUS,5  	; Select Bank1
+	MOVF	ADRESL,0	; Copy a/d info into 4 seperate registers(2 copies of ADRESH
+				; and 2 copies of ADRESL
+
+	BCF	STATUS,5	; //
+	MOVWF	L_byte		; //
+	MOVWF	TEMPL 		; //
+
+	MOVF	ADRESH,0	; //
+	MOVWF	H_byte		; //
+	MOVWF	TEMPH 		; //
+
+	CALL	MULT		; multiplies a/d result by 5 to make it the same as input voltage
+
+
+	CALL	UPDATEDISP	; Update LCD Displays
+	GOTO	ADREAD		; repeat a/d conversion and test if switch one is still pressed
+;**************************************************************************************
+;**************************************************************************************
+
+UPDATEDISP
+	call	clrLCD  	; clear display
+	
+	CALL	CONVERT		; Convert AD value to Thousands , Hundreds,Tens,Units, 
+	call	L1homeLCD	; cursor on line 1
+	movlw	'T'		; Display character
+	call	putcLCD		; //
+ 	movlw	'R'		; Display character
+	call	putcLCD		; //
+	movlw	'A'		; Display character
+	call	putcLCD		; //
+	movlw	'N'		; Display character
+	call	putcLCD		; //
+	movlw	'S'		; Display character
+	call	putcLCD		; //
+	movlw	' '		; Display character
+	call	putcLCD		; //
+ 	movlw	'='		; Display character
+	call	putcLCD		; //
+	movlw	' '		; Display character
+	call	putcLCD		; //
+
+	swapf	R1,0		; Read character , mask it and display it on LCD
+	andlw	b'00001111'	; //
+	addlw	d'48'		; //
+	movwf	T_TH_BYTE	;
+	call	putcLCD		; //
+
+	movf	R1,0		; Read character , mask it and display it on LCD
+	andlw	b'00001111'	; //
+	addlw	d'48'		; //
+	movwf	T_H_BYTE	;
+	call	putcLCD		; //
+
+	swapf	R2,0		; Read character , mask it and display it on LCD
+	andlw	b'00001111'	; //
+	addlw	d'48'		; //
+	movwf	T_T_BYTE	;
+	call	putcLCD		; //
+
+	movf	R2,0		; Read character , mask it and display it on LCD
+	andlw	b'00001111'	; //
+	addlw	d'48'		; //
+	movwf	T_U_BYTE	;
+	call	putcLCD		; //
+
+	movlw	' '		; Display character
+	call	putcLCD		; //
+	movlw	'm'		; Display character
+	call	putcLCD		; //
+	movlw	'V'		; Display character
+	call	putcLCD		; //
+
+
+
+
+	call	L2homeLCD	; move to start of second line on display
+	movlw	'R'		; Display character
+ 	call	putcLCD		; //
+ 	movlw	'E'		; Display character
+	call	putcLCD		; //
+	movlw	'C'		; Display character
+	call	putcLCD		; //
+	movlw	'E'		; Display character
+	call	putcLCD		; //
+	movlw	'V'		; Display character
+	call	putcLCD		; //
+	movlw	' '		; Display character
+	call	putcLCD		; //
+	movlw	'='		; Display character
+	call	putcLCD		; //
+	movlw	' '		; Display character
+	call	putcLCD		; //
+
+	MOVF	R_TH_BYTE,0	;
+	call	putcLCD		; //
+
+	MOVF	R_H_BYTE,0	;
+	call	putcLCD		; //
+
+	MOVF	R_T_BYTE,0	;
+	call	putcLCD		; //
+
+	MOVF	R_U_BYTE,0	;
+	call	putcLCD		; //
+
+	movlw	' '		; Display character
+	call	putcLCD		; //
+	movlw	'm'		; Display character
+	call	putcLCD		; //
+	movlw	'V'		; Display character
+	call	putcLCD		; //
+
+
+	RETURN			;
+
+;**************************************************************************************
+
+
+CONVERT  
+; Source code for this conversion courtesy of Microchip
+;********************************************************************
+;                  Binary To BCD Conversion Routine
+;      This routine converts a 16 Bit binary Number to a 5 Digit
+; BCD Number. This routine is useful since PIC16C55 & PIC16C57
+; have  two 8 bit ports and one 4 bit port ( total of 5 BCD digits)
+;
+;       The 16 bit binary number is input in locations H_byte and
+; L_byte with the high byte in H_byte.
+;       The 5 digit BCD number is returned in R0, R1 and R2 with R0
+; containing the MSD in its right most nibble.
+;
+;   Performance :
+;               Program Memory  :       35
+;               Clock Cycles    :       885
+;
+;
+;       Revision Date:   
+;                         1-13-97      Compatibility with MPASMWIN 1.40
+;
+;*******************************************************************;
+
+
+	bcf     STATUS,0                ; clear the carry bit
+	movlw   D'16'
+	movwf   Count
+	clrf    R0
+	clrf    R1
+	clrf    R2
+loop16  rlf     L_byte, F
+	rlf     H_byte, F
+	rlf     R2, F
+	rlf     R1, F
+	rlf     R0, F
+;
+	decfsz  Count, F
+	goto    adjDEC
+	RETLW   0
+;
+adjDEC  movlw   R2
+	movwf   FSR
+	call    adjBCD
+;
+	movlw   R1
+	movwf   FSR
+	call    adjBCD
+;
+	movlw   R0
+	movwf   FSR
+	call    adjBCD
+;
+	goto    loop16
+;
+adjBCD  movlw   3
+	addwf   0,W
+	movwf   temp
+	btfsc   temp,3          ; test if result > 7
+	movwf   0
+	movlw   30
+	addwf   0,W
+	movwf   temp
+	btfsc   temp,7          ; test if result > 7
+	movwf   0               ; save as MSD
+	RETLW   0
+;**************************************************************************************
+
+
+;**************************************************************************************
+
+MULT
+	rlf	L_byte,1	;
+	rlf	H_byte,1	;
+	rlf	L_byte,1	;
+	rlf	H_byte,1	;
+	movf	TEMPL,0		;
+	addwf	L_byte,1	;
+	btfsc	STATUS,0	;
+	incf	H_byte,1	;
+	movf	TEMPH,0		;
+	addwf	H_byte,1	;
+	return			;
+
+;**************************************************************************************
+	
+;*******************************************************************
+;* The LCD Module Subroutines                                      *
+;* Command sequence for 2 lines of 5x16 characters                 *
+;*******************************************************************
+;
+; Subroutines Courtesy of Pat Ellis ( Senior Lecturer)
+
+InitLCD
+	bcf	STATUS,RP0	; Bank 0
+	bcf	STATUS,RP1
+	clrf	LCD_DATA	; Clear LCD data & control bits
+	bsf	STATUS,RP0	; Bank 1
+	movlw	0xc0		; Initialize inputs/outputs for LCD
+	movwf	LCD_DATA
+	btfsc	PCON,NOT_POR	; Check to see if POR reset or other
+	goto	InitLCDEnd
+
+	bcf	STATUS,RP0	; If POR reset occured, full init LCD
+	call	LongDelay
+	movlw   0x02		; Init for 4-bit interface
+	movwf   LCD_DATA
+	bsf     LCD_CNTL, E
+	bcf     LCD_CNTL, E
+	call	LongDelay
+
+	movlw	b'00101000'
+	call	SendCmd
+	movlw	DISP_ON		; Turn display on
+	call	SendCmd
+	movlw	ENTRY_INC	; Configure cursor movement
+	call	SendCmd
+	movlw	DD_RAM_ADDR	; Set writes for display memory
+	call	SendCmd
+
+InitLCDEnd			; Always clear the LCD and set
+	bcf	STATUS,RP0	; the POR bit when exiting
+	call	clrLCD
+	bsf	STATUS,RP0
+	bsf	PCON,NOT_POR
+	bcf	STATUS,RP0
+	return
+
+;*******************************************************************
+;*SendChar - Sends character to LCD                                *
+;*This routine splits the character into the upper and lower       * 
+;*nibbles and sends them to the LCD, upper nibble first.           *
+;*******************************************************************
+putcLCD
+	movwf	Byte		; Save WREG in Byte variable
+	call	Delay
+	swapf	Byte,W		; Write upper nibble first
+	andlw	0x0f
+	movwf	LCD_DATA
+	bsf	LCD_CNTL, RS	; Set for data
+	bsf	LCD_CNTL, E	; Clock nibble into LCD
+	bcf	LCD_CNTL, E
+	movf	Byte,W		; Write lower nibble last
+	andlw	0x0f
+	movwf	LCD_DATA
+	bsf	LCD_CNTL, RS	; Set for data
+	bsf	LCD_CNTL, E	; Clock nibble into LCD
+	bcf	LCD_CNTL, E
+	return
+
+;*******************************************************************
+;* SendCmd - Sends command to LCD                                  *
+;* This routine splits the command into the upper and lower        * 
+;* nibbles and sends them to the LCD, upper nibble first.          *
+;*******************************************************************
+SendCmd
+	movwf	Byte		; Save WREG in Byte variable
+	call	Delay
+	swapf	Byte,W		; Send upper nibble first
+	andlw	0x0f
+	movwf	LCD_DATA
+	bcf	LCD_CNTL,RS	; Clear for command
+	bsf	LCD_CNTL,E	; Clock nibble into LCD
+	bcf	LCD_CNTL,E
+	movf	Byte,W		; Write lower nibble last
+	andlw	0x0f
+	movwf	LCD_DATA
+	bcf	LCD_CNTL,RS	; Clear for command
+	bsf	LCD_CNTL,E	; Clock nibble into LCD
+	bcf	LCD_CNTL,E
+	return
+
+;*******************************************************************
+;* clrLCD - Clear the contents of the LCD                          *
+;*******************************************************************
+clrLCD
+	movlw	CLR_DISP	; Send the command to clear display
+	call	SendCmd
+	return
+
+
+;*******************************************************************
+;* L1homeLCD - Moves the cursor to home position on Line 1         *
+;*******************************************************************
+L1homeLCD
+	movlw	DD_RAM_ADDR|0x00 ; Send command to move cursor to 
+	call	SendCmd		 ; home position on line 1
+	return
+
+;*******************************************************************
+;* L2homeLCD - Moves the cursor to home position on Line 2         *
+;*******************************************************************
+L2homeLCD
+	movlw	DD_RAM_ADDR|0x28 ; Send command to move cursor to
+	call	SendCmd		 ; home position on line 2
+	return
+
+
+;*******************************************************************
+;* Delay - Generic LCD delay                                       *
+;* Since the microcontroller can not read the busy flag of the     *
+;* LCD, a specific delay needs to be executed between writes to    *
+;* the LCD.                                                        *
+;*******************************************************************
+Delay				; 2 cycles for call	
+;	return			; **********************************************remove
+	clrf	Count		; 1 cycle to clear counter variable
+Dloop
+	decfsz	Count,f		; These two instructions provide a
+	goto	Dloop		; (256 * 3) -1 cycle count
+	return			; 2 cycles for return
+
+
+;*******************************************************************
+;* LongDelay - Generic long LCD delay                              *
+;* POR delay for the LCD panel.                                    *
+;*******************************************************************
+LongDelay
+;	return  	; ***************remove for prog	
+	clrf	Count
+	clrf	Count1
+	movlw	0x03
+	movwf	Count2
+LDloop
+	decfsz	Count,f
+	goto	LDloop
+	decfsz	Count1,f
+	goto	LDloop
+	decfsz	Count2,f
+	goto	LDloop
+	return
+
+
+;**************************************************************************************
+
+
+DELAY
+; Subroutine delays the processor for +- 0.5 seconds , to allow displays and A/D converter
+; to Stabilize
+	
+	MOVLW 	01h		;Set delay for 0.5 Second
+	MOVWF 	Loop3	 	;Set Loop3 to Loop 3 Times
+LOOP	
+	DECFSZ 	Loop1,1  	;Loop 255 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop
+	DECFSZ 	Loop2,1  	;Loop 255 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop	
+	DECFSZ 	Loop3,1  	;Loop 5 times then move to next loop
+	Goto 	LOOP		;Go Back to the beginning of the Loop
+	RETURN			;Go back and execute instruction after last call
+
+
+
+;**************************************************************************************
+;**************************************************************************************
+
+
+	END			;End of Source code
+
+
+
+
+
+
+
+

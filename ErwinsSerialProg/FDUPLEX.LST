@@ -1,0 +1,1079 @@
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 
+                      00002         list p=16F877
+                      00003         include <p16f877.inc>
+                      00001         LIST
+                      00002 ; P16F877.INC  Standard Header File, Version 1.00    Microchip Technology, Inc.
+                      00373         LIST
+2007   3F31           00004         __CONFIG _BODEN_OFF&_CP_OFF&_WRT_ENABLE_ON&_PWRTE_ON&_WDT_OFF&_XT_OSC&_DEBUG_OFF&_CPD_OFF&_LVP_O
+                            FF
+                      00005 
+  00000020            00006 Loop1   EQU     20h     ; 
+  00000021            00007 Loop2   EQU     21h     ; 
+  00000022            00008 Loop3   EQU     22h     ; 
+  00000023            00009 TEMPH   EQU     23H     ;
+  00000024            00010 TEMPL   EQU     24H     ;
+  00000025            00011 temp    equ     25H     ;
+  00000026            00012 H_byte  equ     26H     ;
+  00000027            00013 L_byte  equ     27H     ;
+  0000002A            00014 R0      equ     2AH     ;
+  00000028            00015 R1      equ     28H     ;
+  00000029            00016 R2      equ     29H     ;
+  0000002A            00017 Byte    EQU     2AH     ;
+  0000002B            00018 Count   EQU     2BH     ;
+  0000002C            00019 Count1  EQU     2CH     ;
+  0000002D            00020 Count2  EQU     2DH     ;
+  0000002E            00021 TEMW    EQU     2EH     ;
+  0000002F            00022 TEMSTAT EQU     2FH     ;
+  00000030            00023 T_TH_BYTE  equ     30H  ;
+  00000031            00024 T_H_BYTE  equ     31H   ;
+  00000032            00025 T_T_BYTE  equ     32H   ;
+  00000033            00026 T_U_BYTE  equ     33H   ;
+  00000034            00027 R_TH_BYTE  equ     34H  ;
+  00000035            00028 R_H_BYTE  equ     35H   ;
+  00000036            00029 R_T_BYTE  equ     36H   ;
+  00000037            00030 R_U_BYTE  equ     37H   ;
+  00000038            00031 T_COUNT equ     38h     ;
+  00000039            00032 R_COUNT equ     39h     ;
+  0000003A            00033 R_TEMP  equ     3Ah     ;
+                      00034 
+                      00035 
+                      00036 ;Defines for I/O ports that provide LCD data & control
+  00000006            00037 LCD_DATA        equ     PORTB
+  00000006            00038 LCD_CNTL        equ     PORTB
+                      00039 
+                      00040 ; Defines for I/O pins that provide LCD control
+  00000005            00041 RS              equ     5
+  00000004            00042 E               equ     4
+                      00043 
+                      00044 ; LCD Module commands
+  0000000C            00045 DISP_ON         EQU     0x00C   ; Display on
+  0000000E            00046 DISP_ON_C       EQU     0x00E   ; Display on, Cursor on
+  0000000F            00047 DISP_ON_B       EQU     0x00F   ; Display on, Cursor on, Blink cursor
+  00000008            00048 DISP_OFF        EQU     0x008   ; Display off
+  00000001            00049 CLR_DISP        EQU     0x001   ; Clear the Display
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+  00000006            00050 ENTRY_INC       EQU     0x006   ;
+  00000007            00051 ENTRY_INC_S     EQU     0x007   ;
+  00000004            00052 ENTRY_DEC       EQU     0x004   ;
+  00000005            00053 ENTRY_DEC_S     EQU     0x005   ;
+  00000080            00054 DD_RAM_ADDR     EQU     0x080   ; Least Significant 7-bit are for address
+  00000080            00055 DD_RAM_UL       EQU     0x080   ; Upper Left coner of the Display
+                      00056 
+                      00057 
+0000                  00058         ORG     0000H           ; resets vector address
+0000   285B           00059         GOTO    INIT
+                      00060         
+0004                  00061         ORG     0004H           ;
+                      00062 
+0004   00AE           00063 INTER   MOVWF   TEMW            ;Copy W to TEMP register
+0005   0E03           00064         SWAPF   STATUS,0        ;Swap status to be saved into W
+0006   0183           00065         CLRF    STATUS          ;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+0007   00AF           00066         MOVWF   TEMSTAT         ;Save status to bank zero STATUS_TEMP register
+                      00067 
+0008   1A0C           00068         BTFSC   PIR1,4          ;
+0009   2016           00069         CALL    TRANSMIT        ;
+                      00070 
+000A   1A8C           00071         BTFSC   PIR1,5          ;
+000B   2037           00072         CALL    RECEIVE         ;
+                      00073 
+000C   1F0C           00074         BTFSS   PIR1,6          ;
+000D   2810           00075         GOTO    $+3             ;
+000E   151F           00076         BSF     ADCON0,2        ;
+000F   130C           00077         BCF     PIR1,6          ;
+                      00078 
+                      00079 
+0010   0183           00080         CLRF    STATUS          ;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+                      00081 
+0011   0E2F           00082         SWAPF   TEMSTAT,0       ;Swap STATUS_TEMP register into W
+                      00083                                 ;(sets bank to original state)
+0012   0083           00084         MOVWF   STATUS          ;Move W into STATUS register
+0013   0EAE           00085         SWAPF   TEMW,1          ;Swap W_TEMP
+0014   0E2E           00086         SWAPF   TEMW,0          ;Swap W_TEMP into W
+0015   0009           00087         RETFIE                  ;return from interrupt(restores pc to original state)
+                      00088 
+0016                  00089 TRANSMIT
+0016   1838           00090         BTFSC   T_COUNT,0       ;
+0017   2028           00091         CALL    TR_ST           ;
+0018   18B8           00092         BTFSC   T_COUNT,1       ;
+0019   202B           00093         CALL    TR_TH           ;
+001A   1938           00094         BTFSC   T_COUNT,2       ;
+001B   202E           00095         CALL    TR_HU           ;
+001C   19B8           00096         BTFSC   T_COUNT,3       ;
+001D   2031           00097         CALL    TR_TE           ;
+001E   1A38           00098         BTFSC   T_COUNT,4       ;
+001F   2034           00099         CALL    TR_UN           ;
+0020   0DB8           00100         RLF     T_COUNT,1       ;
+0021   1EB8           00101         BTFSS   T_COUNT,5       ;
+0022   2824           00102         GOTO    $+2             ;
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  3
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0023   01B8           00103         CLRF    T_COUNT         ;
+0024   0838           00104         MOVF    T_COUNT,0       ;
+0025   1903           00105         BTFSC   STATUS,2        ;
+0026   1438           00106         BSF     T_COUNT,0       ;
+                      00107                         
+0027   0008           00108         RETURN  
+                      00109 
+                      00110 
+0028                  00111 TR_ST
+0028   3053           00112         MOVLW   'S'             ;
+0029   0099           00113         MOVWF   TXREG           ;
+002A   0008           00114         RETURN                  ;
+                      00115 
+002B                  00116 TR_TH
+002B   0830           00117         MOVF    T_TH_BYTE,0     ;
+002C   0099           00118         MOVWF   TXREG           ;
+002D   0008           00119         RETURN                  ;
+002E                  00120 TR_HU
+002E   0831           00121         MOVF    T_H_BYTE,0      ;
+002F   0099           00122         MOVWF   TXREG           ;
+0030   0008           00123         RETURN                  ;
+0031                  00124 TR_TE
+0031   0832           00125         MOVF    T_T_BYTE,0      ;
+0032   0099           00126         MOVWF   TXREG           ;
+0033   0008           00127         RETURN                  ;
+0034                  00128 TR_UN
+0034   0833           00129         MOVF    T_U_BYTE,0      ;
+0035   0099           00130         MOVWF   TXREG           ;
+0036   0008           00131         RETURN                  ;
+                      00132 
+0037                  00133 RECEIVE
+0037   081A           00134         MOVF    RCREG,0         ;
+0038   00BA           00135         MOVWF   R_TEMP          ;
+0039   3053           00136         MOVLW   'S'             ;
+003A   023A           00137         SUBWF   R_TEMP,0        ;
+                      00138 
+003B   1D03           00139         BTFSS   STATUS,2        ;
+003C   283F           00140         GOTO    $+3             ;
+003D   01B9           00141         CLRF    R_COUNT         ;
+003E   1439           00142         BSF     R_COUNT,0       ;
+                      00143         
+003F   18B9           00144         BTFSC   R_COUNT,1       ;
+0040   204F           00145         CALL    R_TH            ;
+0041   1939           00146         BTFSC   R_COUNT,2       ;
+0042   2052           00147         CALL    R_HU            ;
+0043   19B9           00148         BTFSC   R_COUNT,3       ;
+0044   2055           00149         CALL    R_TE            ;
+0045   1A39           00150         BTFSC   R_COUNT,4       ;
+0046   2058           00151         CALL    R_UN            ;
+0047   3001           00152         MOVLW   D'1'            ;
+0048   3E01           00153         ADDLW   D'1'            ;
+0049   0DB9           00154         RLF     R_COUNT,1       ;
+004A   1EB9           00155         BTFSS   R_COUNT,5       ;
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  4
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+004B   284E           00156         GOTO    $+3             ;
+004C   01B9           00157         CLRF    R_COUNT         ;
+004D   1439           00158         BSF     R_COUNT,0       ;
+                      00159                         
+004E   0008           00160         RETURN  
+                      00161 
+                      00162 
+004F                  00163 R_TH
+004F   083A           00164         MOVF    R_TEMP,0        ;
+0050   00B4           00165         MOVWF   R_TH_BYTE       ;
+0051   0008           00166         RETURN                  ;
+                      00167 
+0052                  00168 R_HU
+0052   083A           00169         MOVF    R_TEMP,0        ;
+0053   00B5           00170         MOVWF   R_H_BYTE        ;
+0054   0008           00171         RETURN                  ;
+0055                  00172 R_TE
+0055   083A           00173         MOVF    R_TEMP,0        ;
+0056   00B6           00174         MOVWF   R_T_BYTE        ;
+0057   0008           00175         RETURN                  ;
+0058                  00176 R_UN
+0058   083A           00177         MOVF    R_TEMP,0        ;
+0059   00B7           00178         MOVWF   R_U_BYTE        ;
+005A   0008           00179         RETURN                  ;
+                      00180         
+                      00181 
+                      00182 
+                      00183         
+                      00184 
+                      00185 
+                      00186 
+005B                  00187 INIT
+005B   1683           00188         BSF     STATUS,RP0      ; Switch to Rambank 1
+                      00189 
+005C   30A4           00190         MOVLW   B'10100100'     ; Adcon result right justified, pin RA4 Digital, pin RA0 Analogue,1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+005D   009F           00191         MOVWF   ADCON1          ; Vref+ = Vdd, Vref- = Vss.
+                      00192 
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+005E   1707           00193         BSF     TRISC,6         ; Enable transmit pin
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+005F   1787           00194         BSF     TRISC,7         ; Enable Receive pin
+                      00195 
+0060   1683           00196         BSF STATUS,RP0          ; Go to Bank1
+0061   3019           00197         MOVLW 19h               ; Set Baud rate 9600
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0062   0099           00198         MOVWF SPBRG
+0063   3020           00199         MOVLW b'00100000'       ; 9-bit transmit, transmitter enabled,b'00100100'
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0064   0098           00200         MOVWF TXSTA             ; asynchronous mode, high speed mode
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0065   160C           00201         BSF PIE1,TXIE           ; Enable transmit interrupts
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  5
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0066   168C           00202         BSF PIE1,RCIE           ; Enable receive interrupts
+0067   1283           00203         BCF STATUS,RP0          ; Go to Bank 0
+0068   3090           00204         MOVLW b'10010000'       ; 9-bit receive, receiver enabled,b'10100000'
+0069   0098           00205         MOVWF RCSTA             ; serial port enabled
+                      00206 
+                      00207 
+006A   3041           00208         MOVLW   B'01000001'     ; Fosc/32, RA0 input, enable A/D module
+006B   009F           00209         MOVWF   ADCON0          ;
+                      00210 
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+006C   170C           00211         BSF     PIE1,6          ;       
+                      00212 
+006D   30C0           00213         MOVLW   B'11000000'     ; 
+006E   008B           00214         MOVWF   INTCON          ;
+                      00215 
+006F   01B8           00216         CLRF    T_COUNT         ;
+0070   01B9           00217         CLRF    R_COUNT         ;
+0071   01B0           00218         CLRF    T_TH_BYTE       ;
+0072   01B1           00219         CLRF    T_H_BYTE        ;
+0073   01B2           00220         CLRF    T_T_BYTE        ;
+0074   01B3           00221         CLRF    T_U_BYTE        ;
+0075   01B4           00222         CLRF    R_TH_BYTE       ;
+0076   01B5           00223         CLRF    R_H_BYTE        ;
+0077   01B6           00224         CLRF    R_T_BYTE        ;
+0078   01B7           00225         CLRF    R_U_BYTE        ;
+                      00226         
+                      00227 
+0079   2102           00228         call    InitLCD         ; Initialize LCD display
+007A   151F           00229         BSF     ADCON0,2        ;
+                      00230 
+                      00231 
+007B                  00232 ADREAD
+                      00233 
+                      00234                 
+                      00235 
+007B   2155           00236         CALL    DELAY           ;
+                      00237 
+                      00238 
+007C   1683           00239 FDEL    BSF     STATUS,5        ; Select Bank1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+007D   081E           00240         MOVF    ADRESL,0        ; Copy a/d info into 4 seperate registers(2 copies of ADRESH
+                      00241                                 ; and 2 copies of ADRESL
+                      00242 
+007E   1283           00243         BCF     STATUS,5        ; //
+007F   00A7           00244         MOVWF   L_byte          ; //
+0080   00A4           00245         MOVWF   TEMPL           ; //
+                      00246 
+0081   081E           00247         MOVF    ADRESH,0        ; //
+0082   00A6           00248         MOVWF   H_byte          ; //
+0083   00A3           00249         MOVWF   TEMPH           ; //
+                      00250 
+0084   20F7           00251         CALL    MULT            ; multiplies a/d result by 5 to make it the same as input voltage
+                      00252 
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  6
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00253 
+0085   2087           00254         CALL    UPDATEDISP      ; Update LCD Displays
+0086   287B           00255         GOTO    ADREAD          ; repeat a/d conversion and test if switch one is still pressed
+                      00256 ;**************************************************************************************
+                      00257 ;**************************************************************************************
+                      00258 
+0087                  00259 UPDATEDISP
+0087   213D           00260         call    clrLCD          ; clear display
+                      00261         
+0088   20D4           00262         CALL    CONVERT         ; Convert AD value to Thousands , Hundreds,Tens,Units, 
+0089   2140           00263         call    L1homeLCD       ; cursor on line 1
+008A   3054           00264         movlw   'T'             ; Display character
+008B   211F           00265         call    putcLCD         ; //
+008C   3052           00266         movlw   'R'             ; Display character
+008D   211F           00267         call    putcLCD         ; //
+008E   3041           00268         movlw   'A'             ; Display character
+008F   211F           00269         call    putcLCD         ; //
+0090   304E           00270         movlw   'N'             ; Display character
+0091   211F           00271         call    putcLCD         ; //
+0092   3053           00272         movlw   'S'             ; Display character
+0093   211F           00273         call    putcLCD         ; //
+0094   3020           00274         movlw   ' '             ; Display character
+0095   211F           00275         call    putcLCD         ; //
+0096   303D           00276         movlw   '='             ; Display character
+0097   211F           00277         call    putcLCD         ; //
+0098   3020           00278         movlw   ' '             ; Display character
+0099   211F           00279         call    putcLCD         ; //
+                      00280 
+009A   0E28           00281         swapf   R1,0            ; Read character , mask it and display it on LCD
+009B   390F           00282         andlw   b'00001111'     ; //
+009C   3E30           00283         addlw   d'48'           ; //
+009D   00B0           00284         movwf   T_TH_BYTE       ;
+009E   211F           00285         call    putcLCD         ; //
+                      00286 
+009F   0828           00287         movf    R1,0            ; Read character , mask it and display it on LCD
+00A0   390F           00288         andlw   b'00001111'     ; //
+00A1   3E30           00289         addlw   d'48'           ; //
+00A2   00B1           00290         movwf   T_H_BYTE        ;
+00A3   211F           00291         call    putcLCD         ; //
+                      00292 
+00A4   0E29           00293         swapf   R2,0            ; Read character , mask it and display it on LCD
+00A5   390F           00294         andlw   b'00001111'     ; //
+00A6   3E30           00295         addlw   d'48'           ; //
+00A7   00B2           00296         movwf   T_T_BYTE        ;
+00A8   211F           00297         call    putcLCD         ; //
+                      00298 
+00A9   0829           00299         movf    R2,0            ; Read character , mask it and display it on LCD
+00AA   390F           00300         andlw   b'00001111'     ; //
+00AB   3E30           00301         addlw   d'48'           ; //
+00AC   00B3           00302         movwf   T_U_BYTE        ;
+00AD   211F           00303         call    putcLCD         ; //
+                      00304 
+00AE   3020           00305         movlw   ' '             ; Display character
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  7
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00AF   211F           00306         call    putcLCD         ; //
+00B0   306D           00307         movlw   'm'             ; Display character
+00B1   211F           00308         call    putcLCD         ; //
+00B2   3056           00309         movlw   'V'             ; Display character
+00B3   211F           00310         call    putcLCD         ; //
+                      00311 
+                      00312 
+                      00313 
+                      00314 
+00B4   2143           00315         call    L2homeLCD       ; move to start of second line on display
+00B5   3052           00316         movlw   'R'             ; Display character
+00B6   211F           00317         call    putcLCD         ; //
+00B7   3045           00318         movlw   'E'             ; Display character
+00B8   211F           00319         call    putcLCD         ; //
+00B9   3043           00320         movlw   'C'             ; Display character
+00BA   211F           00321         call    putcLCD         ; //
+00BB   3045           00322         movlw   'E'             ; Display character
+00BC   211F           00323         call    putcLCD         ; //
+00BD   3056           00324         movlw   'V'             ; Display character
+00BE   211F           00325         call    putcLCD         ; //
+00BF   3020           00326         movlw   ' '             ; Display character
+00C0   211F           00327         call    putcLCD         ; //
+00C1   303D           00328         movlw   '='             ; Display character
+00C2   211F           00329         call    putcLCD         ; //
+00C3   3020           00330         movlw   ' '             ; Display character
+00C4   211F           00331         call    putcLCD         ; //
+                      00332 
+00C5   0834           00333         MOVF    R_TH_BYTE,0     ;
+00C6   211F           00334         call    putcLCD         ; //
+                      00335 
+00C7   0835           00336         MOVF    R_H_BYTE,0      ;
+00C8   211F           00337         call    putcLCD         ; //
+                      00338 
+00C9   0836           00339         MOVF    R_T_BYTE,0      ;
+00CA   211F           00340         call    putcLCD         ; //
+                      00341 
+00CB   0837           00342         MOVF    R_U_BYTE,0      ;
+00CC   211F           00343         call    putcLCD         ; //
+                      00344 
+00CD   3020           00345         movlw   ' '             ; Display character
+00CE   211F           00346         call    putcLCD         ; //
+00CF   306D           00347         movlw   'm'             ; Display character
+00D0   211F           00348         call    putcLCD         ; //
+00D1   3056           00349         movlw   'V'             ; Display character
+00D2   211F           00350         call    putcLCD         ; //
+                      00351 
+                      00352 
+00D3   0008           00353         RETURN                  ;
+                      00354 
+                      00355 ;**************************************************************************************
+                      00356 
+                      00357 
+00D4                  00358 CONVERT  
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  8
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00359 ; Source code for this conversion courtesy of Microchip
+                      00360 ;********************************************************************
+                      00361 ;                  Binary To BCD Conversion Routine
+                      00362 ;      This routine converts a 16 Bit binary Number to a 5 Digit
+                      00363 ; BCD Number. This routine is useful since PIC16C55 & PIC16C57
+                      00364 ; have  two 8 bit ports and one 4 bit port ( total of 5 BCD digits)
+                      00365 ;
+                      00366 ;       The 16 bit binary number is input in locations H_byte and
+                      00367 ; L_byte with the high byte in H_byte.
+                      00368 ;       The 5 digit BCD number is returned in R0, R1 and R2 with R0
+                      00369 ; containing the MSD in its right most nibble.
+                      00370 ;
+                      00371 ;   Performance :
+                      00372 ;               Program Memory  :       35
+                      00373 ;               Clock Cycles    :       885
+                      00374 ;
+                      00375 ;
+                      00376 ;       Revision Date:   
+                      00377 ;                         1-13-97      Compatibility with MPASMWIN 1.40
+                      00378 ;
+                      00379 ;*******************************************************************;
+                      00380 
+                      00381 
+00D4   1003           00382         bcf     STATUS,0                ; clear the carry bit
+00D5   3010           00383         movlw   D'16'
+00D6   00AB           00384         movwf   Count
+00D7   01AA           00385         clrf    R0
+00D8   01A8           00386         clrf    R1
+00D9   01A9           00387         clrf    R2
+00DA   0DA7           00388 loop16  rlf     L_byte, F
+00DB   0DA6           00389         rlf     H_byte, F
+00DC   0DA9           00390         rlf     R2, F
+00DD   0DA8           00391         rlf     R1, F
+00DE   0DAA           00392         rlf     R0, F
+                      00393 ;
+00DF   0BAB           00394         decfsz  Count, F
+00E0   28E2           00395         goto    adjDEC
+00E1   3400           00396         RETLW   0
+                      00397 ;
+00E2   3029           00398 adjDEC  movlw   R2
+00E3   0084           00399         movwf   FSR
+00E4   20EC           00400         call    adjBCD
+                      00401 ;
+00E5   3028           00402         movlw   R1
+00E6   0084           00403         movwf   FSR
+00E7   20EC           00404         call    adjBCD
+                      00405 ;
+00E8   302A           00406         movlw   R0
+00E9   0084           00407         movwf   FSR
+00EA   20EC           00408         call    adjBCD
+                      00409 ;
+00EB   28DA           00410         goto    loop16
+                      00411 ;
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE  9
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+00EC   3003           00412 adjBCD  movlw   3
+00ED   0700           00413         addwf   0,W
+00EE   00A5           00414         movwf   temp
+00EF   19A5           00415         btfsc   temp,3          ; test if result > 7
+00F0   0080           00416         movwf   0
+00F1   3030           00417         movlw   30
+00F2   0700           00418         addwf   0,W
+00F3   00A5           00419         movwf   temp
+00F4   1BA5           00420         btfsc   temp,7          ; test if result > 7
+00F5   0080           00421         movwf   0               ; save as MSD
+00F6   3400           00422         RETLW   0
+                      00423 ;**************************************************************************************
+                      00424 
+                      00425 
+                      00426 ;**************************************************************************************
+                      00427 
+00F7                  00428 MULT
+00F7   0DA7           00429         rlf     L_byte,1        ;
+00F8   0DA6           00430         rlf     H_byte,1        ;
+00F9   0DA7           00431         rlf     L_byte,1        ;
+00FA   0DA6           00432         rlf     H_byte,1        ;
+00FB   0824           00433         movf    TEMPL,0         ;
+00FC   07A7           00434         addwf   L_byte,1        ;
+00FD   1803           00435         btfsc   STATUS,0        ;
+00FE   0AA6           00436         incf    H_byte,1        ;
+00FF   0823           00437         movf    TEMPH,0         ;
+0100   07A6           00438         addwf   H_byte,1        ;
+0101   0008           00439         return                  ;
+                      00440 
+                      00441 ;**************************************************************************************
+                      00442         
+                      00443 ;*******************************************************************
+                      00444 ;* The LCD Module Subroutines                                      *
+                      00445 ;* Command sequence for 2 lines of 5x16 characters                 *
+                      00446 ;*******************************************************************
+                      00447 ;
+                      00448 ; Subroutines Courtesy of Pat Ellis ( Senior Lecturer)
+                      00449 
+0102                  00450 InitLCD
+0102   1283           00451         bcf     STATUS,RP0      ; Bank 0
+0103   1303           00452         bcf     STATUS,RP1
+0104   0186           00453         clrf    LCD_DATA        ; Clear LCD data & control bits
+0105   1683           00454         bsf     STATUS,RP0      ; Bank 1
+0106   30C0           00455         movlw   0xc0            ; Initialize inputs/outputs for LCD
+0107   0086           00456         movwf   LCD_DATA
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0108   188E           00457         btfsc   PCON,NOT_POR    ; Check to see if POR reset or other
+0109   2919           00458         goto    InitLCDEnd
+                      00459 
+010A   1283           00460         bcf     STATUS,RP0      ; If POR reset occured, full init LCD
+010B   214A           00461         call    LongDelay
+010C   3002           00462         movlw   0x02            ; Init for 4-bit interface
+010D   0086           00463         movwf   LCD_DATA
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 10
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+010E   1606           00464         bsf     LCD_CNTL, E
+010F   1206           00465         bcf     LCD_CNTL, E
+0110   214A           00466         call    LongDelay
+                      00467 
+0111   3028           00468         movlw   b'00101000'
+0112   212E           00469         call    SendCmd
+0113   300C           00470         movlw   DISP_ON         ; Turn display on
+0114   212E           00471         call    SendCmd
+0115   3006           00472         movlw   ENTRY_INC       ; Configure cursor movement
+0116   212E           00473         call    SendCmd
+0117   3080           00474         movlw   DD_RAM_ADDR     ; Set writes for display memory
+0118   212E           00475         call    SendCmd
+                      00476 
+0119                  00477 InitLCDEnd                      ; Always clear the LCD and set
+0119   1283           00478         bcf     STATUS,RP0      ; the POR bit when exiting
+011A   213D           00479         call    clrLCD
+011B   1683           00480         bsf     STATUS,RP0
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+011C   148E           00481         bsf     PCON,NOT_POR
+011D   1283           00482         bcf     STATUS,RP0
+011E   0008           00483         return
+                      00484 
+                      00485 ;*******************************************************************
+                      00486 ;*SendChar - Sends character to LCD                                *
+                      00487 ;*This routine splits the character into the upper and lower       * 
+                      00488 ;*nibbles and sends them to the LCD, upper nibble first.           *
+                      00489 ;*******************************************************************
+011F                  00490 putcLCD
+011F   00AA           00491         movwf   Byte            ; Save WREG in Byte variable
+0120   2146           00492         call    Delay
+0121   0E2A           00493         swapf   Byte,W          ; Write upper nibble first
+0122   390F           00494         andlw   0x0f
+0123   0086           00495         movwf   LCD_DATA
+0124   1686           00496         bsf     LCD_CNTL, RS    ; Set for data
+0125   1606           00497         bsf     LCD_CNTL, E     ; Clock nibble into LCD
+0126   1206           00498         bcf     LCD_CNTL, E
+0127   082A           00499         movf    Byte,W          ; Write lower nibble last
+0128   390F           00500         andlw   0x0f
+0129   0086           00501         movwf   LCD_DATA
+012A   1686           00502         bsf     LCD_CNTL, RS    ; Set for data
+012B   1606           00503         bsf     LCD_CNTL, E     ; Clock nibble into LCD
+012C   1206           00504         bcf     LCD_CNTL, E
+012D   0008           00505         return
+                      00506 
+                      00507 ;*******************************************************************
+                      00508 ;* SendCmd - Sends command to LCD                                  *
+                      00509 ;* This routine splits the command into the upper and lower        * 
+                      00510 ;* nibbles and sends them to the LCD, upper nibble first.          *
+                      00511 ;*******************************************************************
+012E                  00512 SendCmd
+012E   00AA           00513         movwf   Byte            ; Save WREG in Byte variable
+012F   2146           00514         call    Delay
+0130   0E2A           00515         swapf   Byte,W          ; Send upper nibble first
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 11
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+0131   390F           00516         andlw   0x0f
+0132   0086           00517         movwf   LCD_DATA
+0133   1286           00518         bcf     LCD_CNTL,RS     ; Clear for command
+0134   1606           00519         bsf     LCD_CNTL,E      ; Clock nibble into LCD
+0135   1206           00520         bcf     LCD_CNTL,E
+0136   082A           00521         movf    Byte,W          ; Write lower nibble last
+0137   390F           00522         andlw   0x0f
+0138   0086           00523         movwf   LCD_DATA
+0139   1286           00524         bcf     LCD_CNTL,RS     ; Clear for command
+013A   1606           00525         bsf     LCD_CNTL,E      ; Clock nibble into LCD
+013B   1206           00526         bcf     LCD_CNTL,E
+013C   0008           00527         return
+                      00528 
+                      00529 ;*******************************************************************
+                      00530 ;* clrLCD - Clear the contents of the LCD                          *
+                      00531 ;*******************************************************************
+013D                  00532 clrLCD
+013D   3001           00533         movlw   CLR_DISP        ; Send the command to clear display
+013E   212E           00534         call    SendCmd
+013F   0008           00535         return
+                      00536 
+                      00537 
+                      00538 ;*******************************************************************
+                      00539 ;* L1homeLCD - Moves the cursor to home position on Line 1         *
+                      00540 ;*******************************************************************
+0140                  00541 L1homeLCD
+0140   3080           00542         movlw   DD_RAM_ADDR|0x00 ; Send command to move cursor to 
+0141   212E           00543         call    SendCmd          ; home position on line 1
+0142   0008           00544         return
+                      00545 
+                      00546 ;*******************************************************************
+                      00547 ;* L2homeLCD - Moves the cursor to home position on Line 2         *
+                      00548 ;*******************************************************************
+0143                  00549 L2homeLCD
+0143   30A8           00550         movlw   DD_RAM_ADDR|0x28 ; Send command to move cursor to
+0144   212E           00551         call    SendCmd          ; home position on line 2
+0145   0008           00552         return
+                      00553 
+                      00554 
+                      00555 ;*******************************************************************
+                      00556 ;* Delay - Generic LCD delay                                       *
+                      00557 ;* Since the microcontroller can not read the busy flag of the     *
+                      00558 ;* LCD, a specific delay needs to be executed between writes to    *
+                      00559 ;* the LCD.                                                        *
+                      00560 ;*******************************************************************
+0146                  00561 Delay                           ; 2 cycles for call     
+                      00562 ;       return                  ; **********************************************remove
+0146   01AB           00563         clrf    Count           ; 1 cycle to clear counter variable
+0147                  00564 Dloop
+0147   0BAB           00565         decfsz  Count,f         ; These two instructions provide a
+0148   2947           00566         goto    Dloop           ; (256 * 3) -1 cycle count
+0149   0008           00567         return                  ; 2 cycles for return
+                      00568 
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 12
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00569 
+                      00570 ;*******************************************************************
+                      00571 ;* LongDelay - Generic long LCD delay                              *
+                      00572 ;* POR delay for the LCD panel.                                    *
+                      00573 ;*******************************************************************
+014A                  00574 LongDelay
+                      00575 ;       return          ; ***************remove for prog        
+014A   01AB           00576         clrf    Count
+014B   01AC           00577         clrf    Count1
+014C   3003           00578         movlw   0x03
+014D   00AD           00579         movwf   Count2
+014E                  00580 LDloop
+014E   0BAB           00581         decfsz  Count,f
+014F   294E           00582         goto    LDloop
+0150   0BAC           00583         decfsz  Count1,f
+0151   294E           00584         goto    LDloop
+0152   0BAD           00585         decfsz  Count2,f
+0153   294E           00586         goto    LDloop
+0154   0008           00587         return
+                      00588 
+                      00589 
+                      00590 ;**************************************************************************************
+                      00591 
+                      00592 
+0155                  00593 DELAY
+                      00594 ; Subroutine delays the processor for +- 0.5 seconds , to allow displays and A/D converter
+                      00595 ; to Stabilize
+                      00596         
+0155   3001           00597         MOVLW   01h             ;Set delay for 0.5 Second
+0156   00A2           00598         MOVWF   Loop3           ;Set Loop3 to Loop 3 Times
+0157                  00599 LOOP    
+0157   0BA0           00600         DECFSZ  Loop1,1         ;Loop 255 times then move to next loop
+0158   2957           00601         Goto    LOOP            ;Go Back to the beginning of the Loop
+0159   0BA1           00602         DECFSZ  Loop2,1         ;Loop 255 times then move to next loop
+015A   2957           00603         Goto    LOOP            ;Go Back to the beginning of the Loop   
+015B   0BA2           00604         DECFSZ  Loop3,1         ;Loop 5 times then move to next loop
+015C   2957           00605         Goto    LOOP            ;Go Back to the beginning of the Loop
+015D   0008           00606         RETURN                  ;Go back and execute instruction after last call
+                      00607 
+                      00608 
+                      00609 
+                      00610 ;**************************************************************************************
+                      00611 ;**************************************************************************************
+                      00612 
+                      00613 
+                      00614         END                     ;End of Source code
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 13
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+ACKDT                             00000005
+ACKEN                             00000004
+ACKSTAT                           00000006
+ADCON0                            0000001F
+ADCON1                            0000009F
+ADCS0                             00000006
+ADCS1                             00000007
+ADDEN                             00000003
+ADFM                              00000007
+ADIE                              00000006
+ADIF                              00000006
+ADON                              00000000
+ADREAD                            0000007B
+ADRESH                            0000001E
+ADRESL                            0000009E
+BCLIE                             00000003
+BCLIF                             00000003
+BF                                00000000
+BRGH                              00000002
+Byte                              0000002A
+C                                 00000000
+CCP1CON                           00000017
+CCP1IE                            00000002
+CCP1IF                            00000002
+CCP1M0                            00000000
+CCP1M1                            00000001
+CCP1M2                            00000002
+CCP1M3                            00000003
+CCP1X                             00000005
+CCP1Y                             00000004
+CCP2CON                           0000001D
+CCP2IE                            00000000
+CCP2IF                            00000000
+CCP2M0                            00000000
+CCP2M1                            00000001
+CCP2M2                            00000002
+CCP2M3                            00000003
+CCP2X                             00000005
+CCP2Y                             00000004
+CCPR1H                            00000016
+CCPR1L                            00000015
+CCPR2H                            0000001C
+CCPR2L                            0000001B
+CHS0                              00000003
+CHS1                              00000004
+CHS2                              00000005
+CKE                               00000006
+CKP                               00000004
+CLR_DISP                          00000001
+CONVERT                           000000D4
+CREN                              00000004
+CSRC                              00000007
+Count                             0000002B
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 14
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Count1                            0000002C
+Count2                            0000002D
+D                                 00000005
+DATA_ADDRESS                      00000005
+DC                                00000001
+DD_RAM_ADDR                       00000080
+DD_RAM_UL                         00000080
+DELAY                             00000155
+DISP_OFF                          00000008
+DISP_ON                           0000000C
+DISP_ON_B                         0000000F
+DISP_ON_C                         0000000E
+D_A                               00000005
+Delay                             00000146
+Dloop                             00000147
+E                                 00000004
+EEADR                             0000010D
+EEADRH                            0000010F
+EECON1                            0000018C
+EECON2                            0000018D
+EEDATA                            0000010C
+EEDATH                            0000010E
+EEIE                              00000004
+EEIF                              00000004
+EEPGD                             00000007
+ENTRY_DEC                         00000004
+ENTRY_DEC_S                       00000005
+ENTRY_INC                         00000006
+ENTRY_INC_S                       00000007
+F                                 00000001
+FDEL                              0000007C
+FERR                              00000002
+FSR                               00000004
+GCEN                              00000007
+GIE                               00000007
+GO                                00000002
+GO_DONE                           00000002
+H_byte                            00000026
+I2C_DATA                          00000005
+I2C_READ                          00000002
+I2C_START                         00000003
+I2C_STOP                          00000004
+IBF                               00000007
+IBOV                              00000005
+INDF                              00000000
+INIT                              0000005B
+INTCON                            0000000B
+INTE                              00000004
+INTEDG                            00000006
+INTER                             00000004
+INTF                              00000001
+IRP                               00000007
+InitLCD                           00000102
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 15
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+InitLCDEnd                        00000119
+L1homeLCD                         00000140
+L2homeLCD                         00000143
+LCD_CNTL                          00000006
+LCD_DATA                          00000006
+LDloop                            0000014E
+LOOP                              00000157
+L_byte                            00000027
+LongDelay                         0000014A
+Loop1                             00000020
+Loop2                             00000021
+Loop3                             00000022
+MULT                              000000F7
+NOT_A                             00000005
+NOT_ADDRESS                       00000005
+NOT_BO                            00000000
+NOT_BOR                           00000000
+NOT_DONE                          00000002
+NOT_PD                            00000003
+NOT_POR                           00000001
+NOT_RBPU                          00000007
+NOT_RC8                           00000006
+NOT_T1SYNC                        00000002
+NOT_TO                            00000004
+NOT_TX8                           00000006
+NOT_W                             00000002
+NOT_WRITE                         00000002
+OBF                               00000006
+OERR                              00000001
+OPTION_REG                        00000081
+P                                 00000004
+PCFG0                             00000000
+PCFG1                             00000001
+PCFG2                             00000002
+PCFG3                             00000003
+PCL                               00000002
+PCLATH                            0000000A
+PCON                              0000008E
+PEIE                              00000006
+PEN                               00000002
+PIE1                              0000008C
+PIE2                              0000008D
+PIR1                              0000000C
+PIR2                              0000000D
+PORTA                             00000005
+PORTB                             00000006
+PORTC                             00000007
+PORTD                             00000008
+PORTE                             00000009
+PR2                               00000092
+PS0                               00000000
+PS1                               00000001
+PS2                               00000002
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 16
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+PSA                               00000003
+PSPIE                             00000007
+PSPIF                             00000007
+PSPMODE                           00000004
+R                                 00000002
+R0                                0000002A
+R1                                00000028
+R2                                00000029
+RBIE                              00000003
+RBIF                              00000000
+RC8_9                             00000006
+RC9                               00000006
+RCD8                              00000000
+RCEN                              00000003
+RCIE                              00000005
+RCIF                              00000005
+RCREG                             0000001A
+RCSTA                             00000018
+RD                                00000000
+READ_WRITE                        00000002
+RECEIVE                           00000037
+RP0                               00000005
+RP1                               00000006
+RS                                00000005
+RSEN                              00000001
+RX9                               00000006
+RX9D                              00000000
+R_COUNT                           00000039
+R_HU                              00000052
+R_H_BYTE                          00000035
+R_TE                              00000055
+R_TEMP                            0000003A
+R_TH                              0000004F
+R_TH_BYTE                         00000034
+R_T_BYTE                          00000036
+R_UN                              00000058
+R_U_BYTE                          00000037
+R_W                               00000002
+S                                 00000003
+SEN                               00000000
+SMP                               00000007
+SPBRG                             00000099
+SPEN                              00000007
+SREN                              00000005
+SSPADD                            00000093
+SSPBUF                            00000013
+SSPCON                            00000014
+SSPCON2                           00000091
+SSPEN                             00000005
+SSPIE                             00000003
+SSPIF                             00000003
+SSPM0                             00000000
+SSPM1                             00000001
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 17
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+SSPM2                             00000002
+SSPM3                             00000003
+SSPOV                             00000006
+SSPSTAT                           00000094
+STATUS                            00000003
+SYNC                              00000004
+SendCmd                           0000012E
+T0CS                              00000005
+T0IE                              00000005
+T0IF                              00000002
+T0SE                              00000004
+T1CKPS0                           00000004
+T1CKPS1                           00000005
+T1CON                             00000010
+T1INSYNC                          00000002
+T1OSCEN                           00000003
+T1SYNC                            00000002
+T2CKPS0                           00000000
+T2CKPS1                           00000001
+T2CON                             00000012
+TEMPH                             00000023
+TEMPL                             00000024
+TEMSTAT                           0000002F
+TEMW                              0000002E
+TMR0                              00000001
+TMR1CS                            00000001
+TMR1H                             0000000F
+TMR1IE                            00000000
+TMR1IF                            00000000
+TMR1L                             0000000E
+TMR1ON                            00000000
+TMR2                              00000011
+TMR2IE                            00000001
+TMR2IF                            00000001
+TMR2ON                            00000002
+TOUTPS0                           00000003
+TOUTPS1                           00000004
+TOUTPS2                           00000005
+TOUTPS3                           00000006
+TRANSMIT                          00000016
+TRISA                             00000085
+TRISB                             00000086
+TRISC                             00000087
+TRISD                             00000088
+TRISE                             00000089
+TRISE0                            00000000
+TRISE1                            00000001
+TRISE2                            00000002
+TRMT                              00000001
+TR_HU                             0000002E
+TR_ST                             00000028
+TR_TE                             00000031
+TR_TH                             0000002B
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 18
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+TR_UN                             00000034
+TX8_9                             00000006
+TX9                               00000006
+TX9D                              00000000
+TXD8                              00000000
+TXEN                              00000005
+TXIE                              00000004
+TXIF                              00000004
+TXREG                             00000019
+TXSTA                             00000098
+T_COUNT                           00000038
+T_H_BYTE                          00000031
+T_TH_BYTE                         00000030
+T_T_BYTE                          00000032
+T_U_BYTE                          00000033
+UA                                00000001
+UPDATEDISP                        00000087
+W                                 00000000
+WCOL                              00000007
+WR                                00000001
+WREN                              00000002
+WRERR                             00000003
+Z                                 00000002
+_BODEN_OFF                        00003FBF
+_BODEN_ON                         00003FFF
+_CPD_OFF                          00003FFF
+_CPD_ON                           00003EFF
+_CP_ALL                           00000FCF
+_CP_HALF                          00001FDF
+_CP_OFF                           00003FFF
+_CP_UPPER_256                     00002FEF
+_DEBUG_OFF                        00003FFF
+_DEBUG_ON                         000037FF
+_HS_OSC                           00003FFE
+_LP_OSC                           00003FFC
+_LVP_OFF                          00003F7F
+_LVP_ON                           00003FFF
+_PWRTE_OFF                        00003FFF
+_PWRTE_ON                         00003FF7
+_RC_OSC                           00003FFF
+_WDT_OFF                          00003FFB
+_WDT_ON                           00003FFF
+_WRT_ENABLE_OFF                   00003DFF
+_WRT_ENABLE_ON                    00003FFF
+_XT_OSC                           00003FFD
+__16F877                          00000001
+adjBCD                            000000EC
+adjDEC                            000000E2
+clrLCD                            0000013D
+loop16                            000000DA
+putcLCD                           0000011F
+temp                              00000025
+MPASM 03.00 Released          FDUPLEX.ASM   1-15-2004  17:45:10         PAGE 19
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+
+0000 : X---XXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0040 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0080 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+00C0 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0100 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX XXXXXXXXXXXXXXXX
+0140 : XXXXXXXXXXXXXXXX XXXXXXXXXXXXXX-- ---------------- ----------------
+2000 : -------X-------- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:   347
+Program Memory Words Free:  7845
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :    11 reported,     0 suppressed
+
+

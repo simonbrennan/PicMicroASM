@@ -1,0 +1,51 @@
+MPASM 03.00 Released             LAB1.ASM   2-3-2003  20:45:26         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; Program to add two numbers
+                      00002         
+                      00003         list p=16F877
+                      00004 
+  00000020            00005 numb1   equ 20h         ;address of 1st number
+  00000021            00006 numb2   equ 21h         ;address of 2nd number
+  00000022            00007 answ    equ 22h         ;address where result is to be saved
+                      00008 
+0000                  00009         org 0000h       ;reset vector address
+                      00010 
+0000                  00011 MainProgram
+0000   0820           00012         movf    numb1,0 ;fetch 1st number
+0001   0721           00013         addwf   numb2,0 ;add 2nd number and store result
+0002   00A2           00014         movwf   answ    ;store result
+0003   2803           00015         goto    $       ;trap program(jump same lane)
+                      00016 
+                      00017         end             ;end of source program
+MPASM 03.00 Released             LAB1.ASM   2-3-2003  20:45:26         PAGE  2
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+MainProgram                       00000000
+__16F877                          00000001
+answ                              00000022
+numb1                             00000020
+numb2                             00000021
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXX------------ ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:     4
+Program Memory Words Free:  8188
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+

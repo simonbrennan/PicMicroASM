@@ -1,0 +1,111 @@
+MPASM 03.00 Released             LAB4.ASM   4-29-2003  16:33:38         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Name : Simon Brennan                                   *
+                      00003 ; * Student Number : 2021282                               *
+                      00004 ; * Date : 10/03/2003                                      *
+                      00005 ; * Assignment No : LAB4.asm                               *
+                      00006 ; * Description : This program is a 8 bit binary counter   *
+                      00007 ; *               that counts in 8421 code, through portd  *
+                      00008 ; *               using a half a second interval loop      *
+                      00009 ; *               The counter will only count up when      *
+                      00010 ; *               the switch on PortA bit 4 is pressed     *    
+                      00011 ; *                                                        *
+                      00012 ; * Inputs : Address 03h -> Status                         *
+                      00013 ; *          Address 85h -> TrisA                          *                                 
+                      00014 ; *          Address 88h -> TrisD                          *     
+                      00015 ; *          Address 20h -> Loop1                          *    
+                      00016 ; *          Address 21h -> Loop2                          *
+                      00017 ; *          Address 22h -> Loop3                          *            
+                      00018 ; *          Address 05h -> PortA       
+                      00019 ; * Outputs: Address 03h -> PortD                          *
+                      00020 ; **********************************************************
+                      00021 
+                      00022         list p=16F877
+  00000003            00023 Status  EQU     03h     ; Address of status register
+  00000085            00024 TrisA   EQU     85h     ; Address of Tristate Buffer A.
+  00000088            00025 TrisD   EQU     88h     ; Address of Tristate Buffer D.
+  00000020            00026 Loop1   EQU     20h     ; Count variable for the first loop
+  00000021            00027 Loop2   EQU     21h     ; Count variable for the second loop
+  00000022            00028 Loop3   EQU     22h     ; Count variable for the first loop
+  00000005            00029 PortA   EQU     05h     ; Address of Port A.
+  00000008            00030 PortD   EQU     08h     ; Address of Port D.
+                      00031 
+0000                  00032         ORG 0000h
+                      00033 
+0000                  00034 START
+0000   1683           00035         BSF Status,5    ; Change to Memory Bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0001   0188           00036         CLRF TrisD      ; Set all bits on PortD to outputs
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0002   1605           00037         BSF TrisA,4     ; Set Bit 3 on PortA to input
+0003   1283           00038         BCF Status,5    ; Move to Memory Bank 0
+0004   0188           00039         CLRF PortD      ; Switch off all LED's
+                      00040 
+0005                  00041 SWITCH
+0005   1E05           00042         BTFSS PortA,4   ; Check if switch has been pressed
+0006   0A88           00043         INCF PortD,1    ; Increment portD to make it cound
+0007   2009           00044         CALL DELAY      ; Give us a half a second delay         
+0008   2805           00045         GOTO SWITCH     ; Go and check switch again
+                      00046 
+0009                  00047 DELAY
+                      00048         ;RETURN         ;Used for simulation purposes
+0009   3003           00049         MOVLW 03h       ;Set delay for 0.5 Second
+000A   00A2           00050         MOVWF Loop3     ;Set Loop3 to Loop 3 Times
+000B                  00051 LOOP    
+MPASM 03.00 Released             LAB4.ASM   4-29-2003  16:33:38         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000B   0BA0           00052         DECFSZ Loop1,1  ;Loop 255 times then move to next loop
+000C   280B           00053         Goto LOOP       ;Go Back to the beginning of the Loop
+000D   0BA1           00054         DECFSZ Loop2,1  ;Loop 255 times then move to next loop
+000E   280B           00055         Goto LOOP       ;Go Back to the beginning of the Loop   
+000F   0008           00056         RETURN          ;
+0010   0BA2           00057         DECFSZ Loop3,1  ;Loop 5 times then move to next loop
+0011   280B           00058         Goto LOOP       ;Go Back to the beginning of the Loop
+0012   0008           00059         RETURN          ;Go back and execute instruction after last call
+                      00060         
+                      00061         end             ;End of Source
+MPASM 03.00 Released             LAB4.ASM   4-29-2003  16:33:38         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+DELAY                             00000009
+LOOP                              0000000B
+Loop1                             00000020
+Loop2                             00000021
+Loop3                             00000022
+PortA                             00000005
+PortD                             00000008
+START                             00000000
+SWITCH                            00000005
+Status                            00000003
+TrisA                             00000085
+TrisD                             00000088
+__16F877                          00000001
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XXX------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    19
+Program Memory Words Free:  8173
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     2 reported,     0 suppressed
+
+

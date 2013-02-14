@@ -1,0 +1,101 @@
+MPASM 03.00 Released             LAB2.ASM   3-18-2003  17:30:44         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; **********************************************************
+                      00002 ; * Name : Simon Brennan                                   *
+                      00003 ; * Student Number : 2021282                               *
+                      00004 ; * Date : 17/02/2003                                      *
+                      00005 ; * Assignment No : LAB2.asm                               *
+                      00006 ; * Description : This program switches a LED connected    *
+                      00007 ; *               to PORTD (Bit 7) on for 1 second and     *
+                      00008 ; *               off for 1 second continuosly using a     *
+                      00009 ; *               loop.                                    *
+                      00010 ; *                                                        *
+                      00011 ; * Inputs : Address 03h -> Status                         *
+                      00012 ; *          Address 88h -> TrisD                          *
+                      00013 ; *          Address 20h -> Loop1                          *    
+                      00014 ; *          Address 21h -> Loop2                          *
+                      00015 ; *          Address 22h -> Loop3                          *            
+                      00016 ; * Outputs: Address 03h -> PortD                          *
+                      00017 ; **********************************************************
+                      00018 
+                      00019         list p=16F877
+  00000003            00020 Status  EQU     03h     ; Address of Status register
+  00000088            00021 TrisD   EQU     88h     ; Address of Tristate Buffer D.
+  00000020            00022 Count1  EQU     20h     ; Count variable for the first loop
+  00000021            00023 Count2  EQU     21h     ; Count variable for the second loop
+  00000022            00024 Count3  EQU     22h     ; Count variable for the first loop
+  00000008            00025 PortD   EQU     08h     ; Address of Port D.
+                      00026 
+0000                  00027         ORG 0000h
+                      00028 
+0000                  00029 START
+0000   1683           00030         BSF Status,5            ; Change to Memory Bank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0001   0188           00031         CLRF TrisD              ; Set all bits on PortD to outputs
+0002   1283           00032         BCF Status,5            ; Move to Memory Bank 0
+0003   0188           00033         CLRF PortD              ; Switch off all LED's
+0004                  00034 START2  
+0004   1788           00035         BSF PortD,7             ; Switch LED on PortD, bit 7 on
+0005   2009           00036         CALL DELAY              ; Give us a 1 second delay      
+0006   1388           00037         BCF PortD,7             ; Switch LED on PortD, bit 7 off
+0007   2009           00038         CALL DELAY              ; Give us a 1 Second Delay
+0008   2804           00039         Goto START2
+                      00040 
+0009                  00041 DELAY
+0009   3005           00042         MOVLW   05h             ;Set delay for 1 Second
+000A   00A2           00043         MOVWF   Count3          ;Set Loop3 to Loop 5 Times
+                      00044         ;RETURN                 ;Only used for Simulation purposes
+000B                  00045 LOOP    
+000B   0BA0           00046         DECFSZ  Count1,1         ;Loop 255 times then move to next loop
+000C   280B           00047         Goto    LOOP            ;Go Back to the beginning of the Loop
+000D   0BA1           00048         DECFSZ  Count2,1        ;Loop 255 times then move to next loop
+000E   280B           00049         Goto    LOOP            ;Go Back to the beginning of the Loop   
+000F   0BA2           00050         DECFSZ  Count3,1        ;Loop 5 times then move to next loop
+0010   280B           00051         Goto    LOOP            ;Go Back to the beginning of the Loop
+0011   0008           00052         RETURN                  ;Go back and execute instruction after last call
+MPASM 03.00 Released             LAB2.ASM   3-18-2003  17:30:44         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00053         
+                      00054         end                     ;End of Source
+MPASM 03.00 Released             LAB2.ASM   3-18-2003  17:30:44         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+Count1                            00000020
+Count2                            00000021
+Count3                            00000022
+DELAY                             00000009
+LOOP                              0000000B
+PortD                             00000008
+START                             00000000
+START2                            00000004
+Status                            00000003
+TrisD                             00000088
+__16F877                          00000001
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXXXX XX-------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    18
+Program Memory Words Free:  8174
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     1 reported,     0 suppressed
+
+

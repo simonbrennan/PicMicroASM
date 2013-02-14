@@ -1,0 +1,320 @@
+;************************************************
+;* TEST2.ASM                                    *
+;************************************************
+;* MCU201 Workshop                              *
+;* Written by:  Pat Ellis	                *
+;*              Senior Lecturer 		*
+;*              TWR			        *
+;* Date:        17 April 2001                   *
+;* Revision:	1                               *
+;************************************************
+;* Write a message to the LCD to test the DEV   *
+;* unit.					*
+;************************************************
+
+	list p = 16f877
+	include <p16f877.inc>
+	__CONFIG _BODEN_OFF&_CP_OFF&_WRT_ENABLE_ON&_PWRTE_ON&_WDT_OFF&_XT_OSC&_DEBUG_OFF&_CPD_OFF&_LVP_OFF
+
+;Defines for I/O ports that provide LCD data & control
+LCD_DATA	equ	PORTB
+LCD_CNTL	equ	PORTB
+
+; Defines for I/O pins that provide LCD control
+RS		equ	5
+E		equ	4
+
+; LCD Module commands
+DISP_ON		EQU	0x00C	; Display on
+DISP_ON_C	EQU	0x00E	; Display on, Cursor on
+DISP_ON_B	EQU	0x00F	; Display on, Cursor on, Blink cursor
+DISP_OFF	EQU	0x008	; Display off
+CLR_DISP	EQU	0x001	; Clear the Display
+ENTRY_INC	EQU	0x006	;
+ENTRY_INC_S	EQU	0x007	;
+ENTRY_DEC	EQU	0x004	;
+ENTRY_DEC_S	EQU	0x005	;
+DD_RAM_ADDR	EQU	0x080	; Least Significant 7-bit are for address
+DD_RAM_UL	EQU	0x080	; Upper Left coner of the Display
+;
+
+
+	cblock 20h
+		Byte
+		Count
+		Count1	
+		Count2	
+	endc	
+
+
+
+		
+	org	00h
+	nop
+	goto	Start
+
+; main code
+Start
+
+;************************************************
+;* Place your code here to do the following:    *
+;*   - Initialize the LCD panel                 *
+;*   - Clear the LCD panel                      *
+;*   - Move the cursor to home position of      *
+;*     line 1                                   *
+;*   - Print your massage to line 1 one 	*
+;*     character at a time                      *
+;*   - Move the cursor to home position of      *
+;*     line 2                                   *
+;*   - Print your message to line 2 one         *
+;*     character at a time                      *
+;************************************************
+	call	InitLCD
+	call	clrLCD
+	call	L1homeLCD	;cursor on line 1
+ 	movlw	' '
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+	movlw	'M'
+	call	putcLCD
+	movlw	'I'
+	call	putcLCD
+	movlw	'C'
+	call	putcLCD
+	movlw	'R'
+	call	putcLCD
+	movlw	'O'
+	call	putcLCD
+	movlw	'C'
+	call	putcLCD
+	movlw	'H'
+	call	putcLCD
+	movlw	'I'
+	call	putcLCD
+	movlw	1
+	call	putcLCD
+
+	call	L2homeLCD
+ 	movlw	' '
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+
+ 	movlw	' '
+	call	putcLCD
+	movlw	'i'
+	call	putcLCD
+	movlw	's'
+	call	putcLCD
+ 	movlw	' '
+	call	putcLCD
+	movlw	'T'
+	call	putcLCD
+	movlw	'O'
+	call	putcLCD
+	movlw	'P'
+	call	putcLCD
+	movlw	'S'
+	call	putcLCD
+	movlw	' '
+	call	putcLCD
+
+;************************************************
+;* End of your code                             *
+;************************************************
+
+	goto	$
+
+
+;************************************************
+;* Contains subroutines to control an external  *
+;* lcd panel in 4-bit mode.  These routines     *
+;* were designed specifically for the panel on  *
+;* the MCU201 workshop demo board, but should   *
+;* work with other LCDs with a HD44780 type     *
+;* controller.                                  *
+;* Routines include:                            *
+;*   - InitLCD to initialize the LCD panel      *
+;*   - putcLCD to write a character to LCD      *
+;*   - SendCmd to write a command to LCD        *
+;*   - clrLCD to clear the LCD display          *
+;*   - L1homeLCD to return cursor to line 1 home*
+;*   - L2homeLCD to return cursor to line 2 home*
+;************************************************
+
+;
+
+;*******************************************************************
+;* The LCD Module Subroutines                                      *
+;* Command sequence for 2 lines of 5x16 characters                 *
+;*******************************************************************
+InitLCD
+	bcf	STATUS,RP0	; Bank 0
+	bcf	STATUS,RP1
+	clrf	LCD_DATA	; Clear LCD data & control bits
+	bsf	STATUS,RP0	; Bank 1
+	movlw	0xc0		; Initialize inputs/outputs for LCD
+	movwf	LCD_DATA
+	btfsc	PCON,NOT_POR	; Check to see if POR reset or other
+	goto	InitLCDEnd
+
+	bcf	STATUS,RP0	; If POR reset occured, full init LCD
+	call	LongDelay
+	movlw   0x02		; Init for 4-bit interface
+	movwf   LCD_DATA
+	bsf     LCD_CNTL, E
+	bcf     LCD_CNTL, E
+	call	LongDelay
+
+	movlw	b'00101000'
+	call	SendCmd
+	movlw	DISP_ON		; Turn display on
+	call	SendCmd
+	movlw	ENTRY_INC	; Configure cursor movement
+	call	SendCmd
+	movlw	DD_RAM_ADDR	; Set writes for display memory
+	call	SendCmd
+
+InitLCDEnd			; Always clear the LCD and set
+	bcf	STATUS,RP0	; the POR bit when exiting
+	call	clrLCD
+	bsf	STATUS,RP0
+	bsf	PCON,NOT_POR
+	bcf	STATUS,RP0
+	return
+
+;*******************************************************************
+;*SendChar - Sends character to LCD                                *
+;*This routine splits the character into the upper and lower       * 
+;*nibbles and sends them to the LCD, upper nibble first.           *
+;*******************************************************************
+putcLCD
+	movwf	Byte		; Save WREG in Byte variable
+	call	Delay
+	swapf	Byte,W		; Write upper nibble first
+	andlw	0x0f
+	movwf	LCD_DATA
+	bsf	LCD_CNTL, RS	; Set for data
+	bsf	LCD_CNTL, E	; Clock nibble into LCD
+	bcf	LCD_CNTL, E
+	movf	Byte,W		; Write lower nibble last
+	andlw	0x0f
+	movwf	LCD_DATA
+	bsf	LCD_CNTL, RS	; Set for data
+	bsf	LCD_CNTL, E	; Clock nibble into LCD
+	bcf	LCD_CNTL, E
+	return
+
+;*******************************************************************
+;* SendCmd - Sends command to LCD                                  *
+;* This routine splits the command into the upper and lower        * 
+;* nibbles and sends them to the LCD, upper nibble first.          *
+;*******************************************************************
+SendCmd
+	movwf	Byte		; Save WREG in Byte variable
+	call	Delay
+	swapf	Byte,W		; Send upper nibble first
+	andlw	0x0f
+	movwf	LCD_DATA
+	bcf	LCD_CNTL,RS	; Clear for command
+	bsf	LCD_CNTL,E	; Clock nibble into LCD
+	bcf	LCD_CNTL,E
+	movf	Byte,W		; Write lower nibble last
+	andlw	0x0f
+	movwf	LCD_DATA
+	bcf	LCD_CNTL,RS	; Clear for command
+	bsf	LCD_CNTL,E	; Clock nibble into LCD
+	bcf	LCD_CNTL,E
+	return
+
+;*******************************************************************
+;* clrLCD - Clear the contents of the LCD                          *
+;*******************************************************************
+clrLCD
+	movlw	CLR_DISP	; Send the command to clear display
+	call	SendCmd
+	return
+
+
+;*******************************************************************
+;* L1homeLCD - Moves the cursor to home position on Line 1         *
+;*******************************************************************
+L1homeLCD
+	movlw	DD_RAM_ADDR|0x00 ; Send command to move cursor to 
+	call	SendCmd		 ; home position on line 1
+	return
+
+;*******************************************************************
+;* L2homeLCD - Moves the cursor to home position on Line 2         *
+;*******************************************************************
+L2homeLCD
+	movlw	DD_RAM_ADDR|0x28 ; Send command to move cursor to
+	call	SendCmd		 ; home position on line 2
+	return
+
+
+;*******************************************************************
+;* Delay - Generic LCD delay                                       *
+;* Since the microcontroller can not read the busy flag of the     *
+;* LCD, a specific delay needs to be executed between writes to    *
+;* the LCD.                                                        *
+;*******************************************************************
+Delay				; 2 cycles for call
+	clrf	Count		; 1 cycle to clear counter variable
+Dloop
+	decfsz	Count,f		; These two instructions provide a
+	goto	Dloop		; (256 * 3) -1 cycle count
+	return			; 2 cycles for return
+
+
+;*******************************************************************
+;* LongDelay - Generic long LCD delay                              *
+;* POR delay for the LCD panel.                                    *
+;*******************************************************************
+LongDelay
+	clrf	Count
+	clrf	Count1
+	movlw	0x03
+	movwf	Count2
+LDloop
+	decfsz	Count,f
+	goto	LDloop
+	decfsz	Count1,f
+	goto	LDloop
+	decfsz	Count2,f
+	goto	LDloop
+	return
+
+
+	END
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

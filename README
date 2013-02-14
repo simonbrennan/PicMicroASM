@@ -1,0 +1,21 @@
+This repository contains some of my Pic Micro Assembler code from University.
+
+BoardTestProgs - Test programs to check all the components work on dev board.
+Digital System 3 - All the assignments and labs from my Digital Systems course.
+ErwinsSerialProg - Serial port application written by Erwin, not my code.
+freqgen - Using the Pic Micro as a frequency generator
+
+my projects - Various projects I developed for my Pic Micro board.
+	ADConvertor - Reading analog voltages and converting to digital.
+	DevBoardLCD - Driving an LCD display.
+	DevTXtoPC - Transmitting data via a serial port to a PC.
+	EEPROM write and read - Using the EEPROM non-volatile memory.
+	Keypad - Using a keypad.
+	LightMeter - Measures the amount of light in a room, using light sensitive diode.
+	RunningLight - Night Rider style lights
+	RXSerial - Sending data to PicMicro using the Serial Port.
+	RXSerialInterupts - Using an interupt to detect Serial Port data.
+	Tmr0example - Using the TMR0 interupt.
+
+Simon Brennan
+	

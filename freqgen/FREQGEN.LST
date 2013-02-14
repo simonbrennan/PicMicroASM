@@ -1,0 +1,134 @@
+MPASM 03.00 Released          FREQGEN.ASM   1-15-2004  17:25:54         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ; =================================================================
+                      00002 ; = Written By : Simon Brennan                                    =
+                      00003 ; = Date Written : 7 January 2004                                 =
+                      00004 ; = Description : This program uses timer0 to generate a square   =
+                      00005 ; =               wave form at a selectable frequncy              = 
+                      00006 ; = Version : 1.00 - Generate a 2khz wave                         =
+                      00007 ; =           1.01 - Added Saving of w-reg, status reg during     =
+                      00008 ; =                  the tmr0 interupt call. 
+                      00009 ; =================================================================
+                      00010         list p=16f877
+                      00011 
+                      00012 ; Variable equates
+                      00013 
+  00000005            00014 rp0             equ     05h     ; Bit 5 of Status Register (Ram bank select)
+  00000001            00015 f               equ     01h     ; Result of operation into File
+  00000000            00016 w               equ     00h     ; Result of operation into Working Register
+  00000001            00017 tmr0            equ     01h     ; Timer 0 register
+  00000002            00018 zflag           equ     02h     ; Zflag of status register
+  00000002            00019 pcl             equ     02h     ; Address of program counter latch
+  00000003            00020 status          equ     03h     ; Address of status register
+  00000005            00021 porta           equ     05h     ; Address of Port A.
+  00000008            00022 portd           equ     08h     ; Address of Port D.
+  0000000B            00023 intcon          equ     0Bh     ; Address of interupt control register
+  00000020            00024 loop1           equ     20h     ; Count variable for the first loop
+  00000021            00025 loop2           equ     21h     ; Count variable for the second loop
+  00000022            00026 loop3           equ     22h     ; Count variable for the third loop
+  00000023            00027 counter         equ     23h     ; Counter variable for running lights.
+  00000081            00028 optionreg       equ     81h     ; TMR0 option register
+  00000085            00029 trisa           equ     85h     ; Address of Tristate Buffer A.
+  00000088            00030 trisd           equ     88h     ; Address of Tristate Buffer D.
+  0000009F            00031 adcon1          equ     9Fh     ; Address of Adcon1.
+  00000024            00032 temw            equ     24H     ;
+  00000025            00033 temstat         equ     25H     ;
+                      00034 
+Warning[205]: Found directive in column 1. (org)
+0000                  00035 org     0000h   
+0000   2812           00036         goto    INIT
+                      00037         
+0004                  00038         org     0004h
+0004                  00039 INTSERVICE
+0004   00A4           00040         movwf   temw            ;Copy W to TEMP register
+0005   0E03           00041         swapf   status,0        ;Swap status to be saved into W
+0006   0183           00042         clrf    status          ;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+0007   00A5           00043         movwf   temstat         ;Save status to bank zero STATUS_TEMP register
+                      00044 
+0008   1408           00045         bsf     portd,0
+0009   110B           00046         bcf     intcon,2        ; Clear the tmr0 flag
+000A   3032           00047         movlw   32h             ; Set TMR0 to count 50 times
+000B   0081           00048         movwf   tmr0            ; //
+                      00049         
+000C   0183           00050         clrf    status          ;bank 0, regardless of current bank, Clears IRP,RP1,RP0
+000D   0E25           00051         swapf   temstat,0       ;Swap STATUS_TEMP register into W
+                      00052                                 ;(sets bank to original state)
+MPASM 03.00 Released          FREQGEN.ASM   1-15-2004  17:25:54         PAGE  2
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+000E   0083           00053         movwf   status          ;Move W into STATUS register
+000F   0EA4           00054         swapf   temw,1          ;Swap W_TEMP
+0010   0E24           00055         swapf   temw,0          ;Swap W_TEMP into W
+0011   0009           00056         retfie
+                      00057 
+0012                  00058 INIT
+0012   3065           00059         movlw   65h             ; Set TMR0 to count 100 times
+0013   0081           00060         movwf   tmr0            ; //            
+0014   30A0           00061         movlw   b'10100000'     ; Enable interupts, Enable TMR0 interupt
+0015   008B           00062         movwf   intcon          ; //
+0016   1683           00063         bsf     status,rp0      ; Move to rambank 1
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0017   0188           00064         clrf    trisd           ; Set all bits on PortD to output
+0018   3080           00065         movlw   b'10000000'     ; Disable portb pullup resistors, Set tmr0 clock to internal,
+Message[302]: Register in operand not in bank 0.  Ensure that bank bits are correct.
+0019   0081           00066         movwf   optionreg       ; Set prescaler to tmr0, set prescaler 1:128
+001A   1283           00067         bcf     status,rp0      ; move to rambank 0
+001B   0188           00068         clrf    portd           ; Clear all outputs on portd
+001C                  00069 START
+001C   0188           00070         clrf    portd           ;
+001D   281C           00071         goto    START           ;  Loop forever
+                      00072         end                     ; end of source code
+MPASM 03.00 Released          FREQGEN.ASM   1-15-2004  17:25:54         PAGE  3
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+INIT                              00000012
+INTSERVICE                        00000004
+START                             0000001C
+__16F877                          00000001
+adcon1                            0000009F
+counter                           00000023
+f                                 00000001
+intcon                            0000000B
+loop1                             00000020
+loop2                             00000021
+loop3                             00000022
+optionreg                         00000081
+pcl                               00000002
+porta                             00000005
+portd                             00000008
+rp0                               00000005
+status                            00000003
+temstat                           00000025
+temw                              00000024
+tmr0                              00000001
+trisa                             00000085
+trisd                             00000088
+w                                 00000000
+zflag                             00000002
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : X---XXXXXXXXXXXX XXXXXXXXXXXXXX-- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    27
+Program Memory Words Free:  8165
+
+
+Errors   :     0
+Warnings :     1 reported,     0 suppressed
+Messages :     2 reported,     0 suppressed
+
+

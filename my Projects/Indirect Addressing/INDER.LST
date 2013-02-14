@@ -1,0 +1,92 @@
+MPASM 03.10 Released            INDER.ASM   11-13-2003  20:35:09         PAGE  1
+
+
+LOC  OBJECT CODE     LINE SOURCE TEXT
+  VALUE
+
+                      00001 ;******************************************************
+                      00002 ;* Program Name : indirect addressing                 *
+                      00003 ;* Programmer : Simon Brennan                         *
+                      00004 ;* Description : Example prog of indirect addressing  *
+                      00005 ;*               (Gonna use it for a serial port RX   *
+                      00006 ;*               Buffer)                              *
+                      00007 ;******************************************************
+                      00008         list p=16f877
+                      00009 
+                      00010 ;General purpose registers
+                      00011 
+  00000000            00012 w               equ     00h     ; Destination -> Working Register
+  00000001            00013 f               equ     01h     ; Destination -> File
+  00000003            00014 status          equ     03h     ; Address of status register
+  00000002            00015 zflag           equ     02h     ; Z-flag of status register
+                      00016 
+                      00017 ;Indirect addressing registers
+                      00018 
+  00000000            00019 indf            equ     00h     ; Reference Address Pointer     
+  00000004            00020 fsr             equ     04h     ; Address Pointer
+                      00021 
+                      00022 ;buffer flag register   
+                      00023 
+  00000040            00024 bstatus         equ     40h     ; shows status of buffer (0 - Buffer Full)
+                      00025 
+                      00026 ;buffer declaration
+                      00027         
+                      00028         CBLOCK  20h
+  00000020            00029         buffer:14h              ;buffer of 20 bytes
+                      00030         ENDC
+                      00031 
+                      00032 ;*************** Start of program ***********************
+                      00033 
+0000                  00034 INIT:
+0000   3020           00035         movlw    20h            ; Initialise indirect pointer to buffer start (20h)
+0001   0084           00036         movwf    fsr            ;
+0002   30AA           00037         movlw    b'10101010'    ; Load value to save to buffer
+0003   01C0           00038         clrf     bstatus        ;
+0004                  00039 START:
+0004   3E01           00040         addlw   01h             ; Increment working register (Create values to save to buffer)  
+0005   0080           00041         movwf   indf            ; Save value into buffer
+0006   0A84           00042         incf    fsr,f           ; increment pointer       
+0007   0804           00043         movf    fsr,w           ; check current address
+0008   3C35           00044         sublw   35h             ; if the buffer is at max the set buffer
+0009   1903           00045         btfsc   status,zflag    ; status flag (bit 0).
+000A   1440           00046         bsf     bstatus,0       ;
+000B   1840           00047         btfsc   bstatus,0       ; Check for buffer full
+000C   280E           00048         goto    STOP            ; if buffer is full stop
+000D   2804           00049         goto    START           ; keep looping  
+000E                  00050 STOP:
+                      00051         end
+MPASM 03.10 Released            INDER.ASM   11-13-2003  20:35:09         PAGE  2
+
+
+SYMBOL TABLE
+  LABEL                             VALUE 
+
+INIT                              00000000
+START                             00000004
+STOP                              0000000E
+__16F877                          00000001
+bstatus                           00000040
+buffer                            00000020
+f                                 00000001
+fsr                               00000004
+indf                              00000000
+status                            00000003
+w                                 00000000
+zflag                             00000002
+
+
+MEMORY USAGE MAP ('X' = Used,  '-' = Unused)
+
+0000 : XXXXXXXXXXXXXX-- ---------------- ---------------- ----------------
+
+All other memory blocks unused.
+
+Program Memory Words Used:    14
+Program Memory Words Free:  8178
+
+
+Errors   :     0
+Warnings :     0 reported,     0 suppressed
+Messages :     0 reported,     0 suppressed
+
+
